@@ -27,7 +27,8 @@ Set these on the backend host. Never commit them.
 - FISH_AUDIO_VOICE_ID (defaults to the JARVIS MCU voice ID)
 - FISH_AUDIO_MODEL (defaults to s2.1-pro)
 - ALLOW_GUEST (defaults to true)
-- SUPABASE_URL (required for Google/Apple account JWT verification)
+- SUPABASE_URL
+- `SUPABASE_PUBLISHABLE_KEY` (required for Google/Apple account JWT verification)
 
 ## Manual setup still required
 
