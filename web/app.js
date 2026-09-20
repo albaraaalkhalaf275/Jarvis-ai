@@ -38,6 +38,7 @@ let backendUrl = readStorage("jarvis_backend_url").trim().replace(/\/$/, "");
 let authToken = readStorage("jarvis_auth_token");
 let busy = false;
 let recognition = null;
+let currentAudio = null;
 let sessionId = readStorage("jarvis_session_id");
 
 if (!sessionId) {
@@ -118,7 +119,9 @@ async function checkBackend() {
         }
 
         setStatus(true, "ONLINE");
-        subtitle.textContent = "JARVIS systems operational.";
+        subtitle.textContent = data.tts_configured
+            ? "JARVIS systems operational."
+            : "JARVIS online. Neural voice not configured.";
         return true;
     } catch (error) {
         setStatus(false, "OFFLINE");
@@ -196,14 +199,14 @@ async function sendMessage(message) {
 
         setStatus(true, "ONLINE");
         subtitle.textContent = "Awaiting your command.";
-        speak(reply);
+        await speak(reply);
     } catch (error) {
-        const message =
+        const errorMessage =
             error.name === "AbortError"
                 ? "JARVIS timed out waiting for the backend."
                 : `Connection error: ${error.message}`;
 
-        addMessage(message, "jarvis");
+        addMessage(errorMessage, "jarvis");
         subtitle.textContent = "Request failed. Check the connection.";
         checkBackend();
     } finally {
@@ -237,8 +240,6 @@ saveSettings.addEventListener("click", async () => {
     const enteredBackendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
     const enteredAuthToken = authTokenInput.value.trim();
 
-    // Always preserve existing credentials unless the user enters a replacement.
-    // This prevents accidentally wiping the token when reopening Settings.
     if (enteredBackendUrl) {
         backendUrl = enteredBackendUrl;
         writeStorage("jarvis_backend_url", backendUrl);
@@ -256,17 +257,78 @@ saveSettings.addEventListener("click", async () => {
     await checkBackend();
 });
 
-function speak(text) {
+function speakWithBrowser(text) {
     if (!("speechSynthesis" in window)) return;
 
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 0.9;
+    utterance.rate = 0.9;
+    utterance.pitch = 0.85;
     utterance.volume = 1;
 
+    const voices = window.speechSynthesis.getVoices();
+    const britishMale = voices.find(voice =>
+        /^en-GB/i.test(voice.lang) &&
+        /male|ryan|daniel|arthur|oliver|george/i.test(voice.name)
+    );
+
+    if (britishMale) {
+        utterance.voice = britishMale;
+    }
+
     window.speechSynthesis.speak(utterance);
+}
+
+async function speak(text) {
+    if (!backendUrl) {
+        speakWithBrowser(text);
+        return;
+    }
+
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+    }
+
+    const headers = {
+        "Content-Type": "application/json"
+    };
+
+    if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+    }
+
+    try {
+        const response = await fetchWithTimeout(
+            `${backendUrl}/api/speak`,
+            {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ text })
+            },
+            30000
+        );
+
+        if (!response.ok) {
+            throw new Error(`TTS HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        currentAudio = new Audio(url);
+
+        currentAudio.onended = () => {
+            URL.revokeObjectURL(url);
+            currentAudio = null;
+        };
+
+        await currentAudio.play();
+    } catch {
+        // Fall back to the browser voice if Azure Speech is unavailable.
+        speakWithBrowser(text);
+    }
 }
 
 if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
