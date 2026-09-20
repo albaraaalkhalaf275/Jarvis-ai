@@ -1,46 +1,69 @@
 # JARVIS AI
 
-Personal JARVIS-style AI assistant built as an iPhone-friendly PWA with a FastAPI backend and Gemini.
+Personal JARVIS-style AI assistant built as an iPhone-friendly PWA with a FastAPI backend and the OpenAI Responses API.
 
 ## Current architecture
 
 - iPhone browser/PWA frontend
 - FastAPI backend
-- Gemini model integration
-- Bearer-token authentication
-- Conversation history on the client
+- OpenAI Responses API
+- Server-side API credentials
+- Supabase authentication support
+- Conversation history stored locally in the browser
 - Server-side session context during a running backend session
-- Browser speech-to-text when supported
-- Fish Audio JARVIS text-to-speech with browser fallback
 - Health and status endpoints
-- Fast local time, date, and calculator responses
 - Service-worker cache updates
+- Text-first interface while voice features are paused
+
+## Repository structure
+
+- `backend/app/main.py` - backend application and API routes
+- `backend/app/__init__.py` - Python package marker
+- `backend/requirements.txt` - backend dependencies
+- `web/index.html` - PWA interface
+- `web/styles.css` - JARVIS HUD styling
+- `web/app.js` - frontend application logic
+- `web/sw.js` - service worker and cache management
+- `web/manifest.webmanifest` - PWA metadata
+- `.github/workflows/validate.yml` - Python and JavaScript validation
+- `.gitignore` - repository exclusions
+- `README.md` - project documentation
 
 ## Environment variables
 
-Set these on the backend host. Never commit them.
+Secrets belong only on the backend host and must never be committed.
 
-- GEMINI_API_KEY
-- GEMINI_MODEL
-- JARVIS_AUTH_TOKEN
-- FISH_AUDIO_API_KEY
-- FISH_AUDIO_VOICE_ID (defaults to the JARVIS MCU voice ID)
-- FISH_AUDIO_MODEL (defaults to s2.1-pro)
-- ALLOW_GUEST (defaults to true)
-- SUPABASE_URL
-- `SUPABASE_PUBLISHABLE_KEY` (public browser key used for Google/Apple sign-in)
+Core:
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
 
-## Manual setup still required
+Authentication and access:
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `OWNER_EMAIL`
+- `OWNER_USER_ID`
+- `ALLOW_GUEST`
 
-1. Keep the Gemini API key only in the backend environment.
-2. Keep the JARVIS authentication token private.
-3. In the deployed PWA, configure the backend URL. Guest access works without a token. A legacy token can still be used for private/admin access.
-4. For Google/Apple sign-in, enable both providers in Supabase Auth and add `https://jarvis-ai-1-12xu.onrender.com/` to the Supabase Auth Redirect URLs. Put `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the backend environment. JARVIS loads them automatically.
-5. Add/install the PWA on the iPhone if desired.
-6. Grant microphone permission if using browser voice input.
+Optional integrations:
+- `FISH_AUDIO_API_KEY`
+- `FISH_AUDIO_VOICE_ID`
+- `FISH_AUDIO_MODEL`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_PHONE_NUMBER`
+- `JARVIS_OWNER_PHONE`
 
-## Next engineering stages
+## Deployment
 
-The foundation is ready for real tool calling. The next major modules are web search, durable database memory, calendar/reminders, email and messaging integrations, document/file analysis, confirmation workflows, scheduled automation, and optional desktop control.
+Render uses the same GitHub repository with two services:
+
+- Frontend: static site rooted at `web`
+- Backend: Python web service rooted at `backend`
+
+Both services deploy from the `main` branch.
+
+## Engineering direction
+
+The foundation will be extended with web search, durable memory, tool calling, calendar and reminders, email and messaging integrations, document and file analysis, confirmation workflows, scheduled automation, computer control through an optional desktop companion, and self-verification.
 
 iOS browser security limits unrestricted control of other apps and system functions. Those capabilities require approved APIs, Shortcuts/App Intents, or an optional desktop companion.
