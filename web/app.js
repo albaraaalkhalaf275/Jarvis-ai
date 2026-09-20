@@ -545,7 +545,6 @@ settingsButton?.addEventListener("click", () => {
     setMenu(false);
     settingsPanel.classList.remove("hidden");
     backendUrlInput.value = backendUrl;
-    authTokenInput.value = authToken;
 });
 closeSettings?.addEventListener("click", () => settingsPanel.classList.add("hidden"));
 accountButton?.addEventListener("click", () => { setMenu(false); authPanel?.classList.remove("hidden"); });
@@ -572,15 +571,9 @@ signOutButton?.addEventListener("click", async () => {
 });
 saveSettings?.addEventListener("click", async () => {
     const enteredBackendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
-    const enteredSupabaseUrl = supabaseUrlInput?.value.trim().replace(/\/$/, "") || "";
-    const enteredSupabaseKey = supabaseKeyInput?.value.trim() || "";
     if (enteredBackendUrl) { backendUrl = enteredBackendUrl; writeStorage("jarvis_backend_url", backendUrl); }
-    if (enteredSupabaseUrl) writeStorage("jarvis_supabase_url", enteredSupabaseUrl);
-    if (enteredSupabaseKey) writeStorage("jarvis_supabase_key", enteredSupabaseKey);
     backendUrlInput.value = backendUrl;
     authTokenInput.value = authToken;
-    if (supabaseUrlInput) supabaseUrlInput.value = enteredSupabaseUrl || savedSupabaseUrl;
-    if (supabaseKeyInput) supabaseKeyInput.value = enteredSupabaseKey || savedSupabaseKey;
     settingsPanel.classList.add("hidden");
     await initAuth();
     await checkBackend();
