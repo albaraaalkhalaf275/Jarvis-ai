@@ -70,25 +70,14 @@
 
     <section id="messages" class="conversation-feed" aria-live="polite"></section>
 
-    <section class="context-layer" aria-label="Contextual actions">
-      <div class="context-head">
-        <span class="context-line"></span>
-        <span>AVAILABLE NOW</span>
-        <span class="context-line"></span>
-      </div>
-      <div class="context-actions">
-        <button data-command="What can you do right now?"><span>01</span><b>ASK JARVIS</b><small>Open conversation</small></button>
-        <button data-command="Give me a concise system status report."><span>02</span><b>SYSTEM</b><small>Run a check</small></button>
-        <button data-command="Summarize this conversation so far."><span>03</span><b>SUMMARIZE</b><small>Condense context</small></button>
-        <button data-command="What is the current time?"><span>04</span><b>TIME</b><small>Local time</small></button>
-      </div>
-    </section>
-
-    <section class="proactive-card hidden" id="proactiveCard">
-      <div class="proactive-mark">J</div>
-      <div><span>JARVIS SUGGESTION</span><strong id="proactiveText">Standing by.</strong></div>
-      <button id="dismissProactive" type="button" aria-label="Dismiss suggestion">×</button>
-    </section>
+    <section class="context-layer" aria-label="Quick actions">
+    <div class="context-actions">
+      <button data-command="Start a conversation with me."><span>01</span><b>CHAT</b><small>Talk to JARVIS</small></button>
+      <button id="quickMemory" type="button"><span>02</span><b>MEMORY</b><small>Past conversations</small></button>
+      <button id="quickSystem" type="button"><span>03</span><b>STATUS</b><small>System check</small></button>
+      <button id="quickNewChat" type="button"><span>04</span><b>NEW CHAT</b><small>Start fresh</small></button>
+    </div>
+  </section>
 
     <section class="command-console">
       <div class="command-top">
@@ -114,10 +103,7 @@
     </section>
   </main>
 
-  <footer class="hud-footer">
-    <span>JARVIS / <b>PERSONAL INTELLIGENCE SYSTEM</b></span>
-    <span>SECURE SESSION</span>
-  </footer>
+  
 
   <div id="sideMenu" class="side-menu" aria-hidden="true">
     <div id="sideMenuBackdrop" class="side-menu-backdrop"></div>
@@ -133,14 +119,9 @@
         <button class="nav-item active" data-command="Return to the main dashboard."><span>01</span><b>DASHBOARD</b><em>HOME</em></button>
         <button class="nav-item" data-command="Tell me what you can currently do, including your available capabilities."><span>02</span><b>INTELLIGENCE</b><em>CORE</em></button>
         <button id="systemStatusNav" class="nav-item" type="button"><span>03</span><b>SYSTEM STATUS</b><em>LIVE</em></button>
-        <button class="nav-item" data-command="Voice features are currently paused while JARVIS is optimized for fast text responses."><span>04</span><b>VOICE</b><em>PAUSED</em></button>
         <button id="memoryNav" class="nav-item" data-memory-nav="true"><span>05</span><b>MEMORY</b><em id="memoryBadge">0</em></button>
         <div class="nav-divider"></div>
-        <button class="nav-item" data-command="Show me the current calendar capabilities and what is connected."><span>06</span><b>CALENDAR</b><em>READY</em></button>
-        <button class="nav-item" data-command="Show me the current task and automation capabilities."><span>07</span><b>TASKS</b><em>READY</em></button>
-        <button class="nav-item" data-command="Tell me about file and document capabilities."><span>08</span><b>FILES</b><em>READY</em></button>
-        <button class="nav-item" data-command="Tell me about web search capabilities."><span>09</span><b>WEB SEARCH</b><em>READY</em></button>
-      </nav>
+        </nav>
       <section id="systemStatusMenu" class="menu-status-card hidden" aria-hidden="true">
         <div class="menu-status-head"><span class="section-kicker">LIVE DIAGNOSTICS</span><button id="closeSystemStatus" class="menu-status-close" type="button" aria-label="Close system status">×</button></div>
         <div class="menu-status-title">SYSTEM STATUS <b id="statusLabel">CHECKING</b></div>
@@ -188,7 +169,7 @@
     <div class="settings-card">
       <div class="settings-top"><div><span class="section-kicker">OWNER CONTROL</span><h2>JARVIS Configuration</h2></div><button id="closeSettings" class="close-button">×</button></div>
       <label>Backend URL</label><input id="backendUrl" type="url" placeholder="https://your-backend-url.com">
-      <p>Gemini credentials stay server-side. Voice features are temporarily paused and will be reintroduced later.</p>
+      <p>OpenAI credentials stay server-side. Voice features are temporarily paused and will be reintroduced later.</p>
       <div class="settings-actions"><button id="saveSettings">Save Configuration</button></div>
     </div>
   </div>
