@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#03070d">
+    <meta name="theme-color" content="#02070b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>JARVIS</title>
@@ -12,118 +12,162 @@
 </head>
 <body>
 <div class="app">
+    <div class="scanlines"></div>
     <div class="ambient ambient-one"></div>
     <div class="ambient ambient-two"></div>
 
-    <header>
+    <header class="topbar">
         <div class="brand">
-            <div class="brand-mark">J</div>
-            <div>
-                <div class="logo">JARVIS</div>
-                <div class="system-label">PERSONAL INTELLIGENCE SYSTEM</div>
-            </div>
-        </div>
-        <div class="header-right">
-            <div class="live-status"><span id="statusDot"></span><span id="statusText">OFFLINE</span></div>
-            <button id="menuButton" class="menu-button" aria-label="Open navigation menu" aria-expanded="false">
+            <button id="menuButton" class="menu-button" aria-label="Open JARVIS menu" aria-expanded="false">
                 <span></span><span></span><span></span>
             </button>
-            <button id="settingsButton" class="icon-button" aria-label="Open settings">⚙</button>
+            <div class="brand-mark">J</div>
+            <div>
+                <div class="logo">J A R V I S</div>
+                <div class="system-label">PERSONAL AI ASSISTANT</div>
+            </div>
+        </div>
+        <div class="top-status">
+            <span class="online-dot"></span>
+            <span id="statusText">OFFLINE</span>
+            <span class="status-divider"></span>
+            <span id="topTime">--:--</span>
         </div>
     </header>
 
     <main>
-        <section class="hero">
-            <div class="hero-copy">
-                <div class="eyebrow"><span class="pulse-dot"></span> NEURAL CORE</div>
-                <h1>Good day.</h1>
-                <p id="subtitle">Awaiting your command.</p>
+        <section class="clock-section">
+            <div class="clock-line">
+                <span id="clock">--:--</span><small id="seconds">:--</small>
             </div>
+            <div class="date-line" id="date">LOADING DATE</div>
+        </section>
 
-            <div class="reactor-wrap">
-                <div class="orbit orbit-a"></div>
-                <div class="orbit orbit-b"></div>
-                <div class="orbit orbit-c"></div>
-                <div class="reactor">
-                    <div class="reactor-ring"></div>
-                    <div class="reactor-core">J</div>
+        <section class="dashboard-grid">
+            <article class="panel status-panel">
+                <div class="panel-title"><span>◈</span> SYSTEM STATUS <b id="statusLabel">CHECKING</b></div>
+                <div class="status-list">
+                    <div><span class="status-light"></span><span>AI CORE</span><strong id="aiStatus">CHECKING</strong></div>
+                    <div><span class="status-light"></span><span>VOICE SYSTEM</span><strong id="voiceStatus">READY</strong></div>
+                    <div><span class="status-light"></span><span>MEMORY</span><strong id="memoryStatus">LOCAL</strong></div>
+                    <div><span class="status-light"></span><span>BACKEND LINK</span><strong id="backendStatus">OFFLINE</strong></div>
                 </div>
-                <div class="reactor-caption">JARVIS CORE</div>
-            </div>
+                <div class="panel-foot" id="systemFoot">WAITING FOR CONNECTION</div>
+            </article>
 
-            <div class="telemetry">
-                <div><span>LINK</span><strong id="telemetryLink">OFFLINE</strong></div>
-                <div><span>VOICE</span><strong id="telemetryVoice">READY</strong></div>
-                <div><span>SESSION</span><strong>ACTIVE</strong></div>
-            </div>
+            <article class="core-panel">
+                <div class="core-orbit core-orbit-1"></div>
+                <div class="core-orbit core-orbit-2"></div>
+                <div class="core-orbit core-orbit-3"></div>
+                <div class="core-ring"><span>JARVIS</span></div>
+                <div class="core-caption" id="coreCaption">STANDBY</div>
+            </article>
+
+            <article class="panel schedule-panel">
+                <div class="panel-title"><span>▣</span> TODAY'S COMMANDS <b>LOCAL</b></div>
+                <button class="schedule-row" data-command="Give me a concise system status report."><time>01</time><span>System status report</span><i>›</i></button>
+                <button class="schedule-row" data-command="What are my current capabilities?"><time>02</time><span>Review capabilities</span><i>›</i></button>
+                <button class="schedule-row" data-command="Explain what you remember from this conversation."><time>03</time><span>Review current memory</span><i>›</i></button>
+                <button class="schedule-row" data-command="Start a new topic and keep it separate from previous conversations."><time>04</time><span>Start new topic</span><i>›</i></button>
+            </article>
+
+            <article class="panel environment-panel">
+                <div class="panel-title"><span>⌁</span> JARVIS ENVIRONMENT</div>
+                <div class="env-main"><strong id="connectionValue">OFFLINE</strong><span>BACKEND CONNECTION</span></div>
+                <div class="env-grid">
+                    <div><span>SESSION</span><strong id="sessionShort">NEW</strong></div>
+                    <div><span>MEMORY</span><strong id="memoryCount">0</strong></div>
+                    <div><span>VOICE</span><strong id="voiceValue">READY</strong></div>
+                    <div><span>MODEL</span><strong id="modelValue">--</strong></div>
+                </div>
+            </article>
+
+            <article class="panel quick-panel">
+                <div class="panel-title"><span>ϟ</span> QUICK ACTIONS</div>
+                <div class="quick-grid">
+                    <button data-command="What can you do?"><span>AI</span>Ask JARVIS</button>
+                    <button data-command="Give me a system status report."><span>SYS</span>System check</button>
+                    <button data-command="Summarize this conversation so far."><span>Σ</span>Summarize</button>
+                    <button data-command="What is the current time?"><span>◷</span>Time</button>
+                </div>
+            </article>
+
+            <article class="panel activity-panel">
+                <div class="panel-title"><span>◴</span> RECENT ACTIVITY <b id="activityCount">0 EVENTS</b></div>
+                <div id="activityList" class="activity-list">
+                    <div class="empty-state">No activity in this session.</div>
+                </div>
+            </article>
         </section>
 
-        <section class="command-panel">
-            <div class="panel-heading">
-                <div><span class="section-kicker">COMMAND CONSOLE</span><span class="command-state" id="commandState">READY</span></div>
-                <span class="hint">Tap a module or speak</span>
-            </div>
-
-            <section id="messages" class="messages" aria-live="polite"></section>
-
-            <div class="quick-actions">
-                <button data-command="What can you do?"><span>✦</span> Capabilities</button>
-                <button data-command="What is the current time?"><span>◷</span> Time</button>
-                <button data-command="Give me a system status report."><span>⌁</span> System Status</button>
-            </div>
-
+        <section class="command-console">
+            <div class="command-label"><span class="pulse"></span> COMMAND INTERFACE <b id="commandState">READY</b></div>
             <form id="chatForm" class="input-area">
-                <button type="button" id="micButton" class="mic-button" title="Voice input" aria-label="Voice input">◉</button>
-                <input id="messageInput" type="text" autocomplete="off" placeholder="Ask JARVIS anything...">
-                <button type="submit" id="sendButton" class="send-button" aria-label="Send">↑</button>
+                <button type="button" id="micButton" class="mic-button" aria-label="Voice input">◉</button>
+                <input id="messageInput" type="text" autocomplete="off" placeholder="Speak to JARVIS or type a command...">
+                <button type="submit" id="sendButton" class="send-button" aria-label="Send command">➤</button>
             </form>
+            <div class="console-hint">PRESS THE MICROPHONE OR TYPE A COMMAND</div>
         </section>
-
     </main>
 
+    <footer>
+        <span>SYSTEM: <b id="footerStatus">OFFLINE</b> / STATUS: <b>STABLE</b></span>
+        <span>JARVIS PERSONAL INTELLIGENCE SYSTEM</span>
+        <span>LAST UPDATE: <b id="lastUpdate">--:--:--</b></span>
+    </footer>
+
     <div id="sideMenu" class="side-menu" aria-hidden="true">
-        <div class="side-menu-backdrop" id="sideMenuBackdrop"></div>
-        <aside class="side-menu-panel" aria-label="JARVIS navigation">
+        <div id="sideMenuBackdrop" class="side-menu-backdrop"></div>
+        <aside class="side-menu-panel">
             <div class="side-menu-header">
                 <div>
-                    <span class="section-kicker">JARVIS MODULES</span>
-                    <h2>Systems</h2>
+                    <span class="section-kicker">JARVIS SYSTEM</span>
+                    <h2>Navigation</h2>
                 </div>
-                <button id="closeMenu" class="close-button" aria-label="Close navigation menu">×</button>
+                <button id="closeMenu" class="close-button" aria-label="Close menu">×</button>
             </div>
-            <div class="side-menu-items">
-                <button class="module-card" data-command="What capabilities are currently available to me?">
-                    <span class="module-icon">AI</span>
-                    <span><b>INTELLIGENCE</b><small>Conversation & reasoning</small></span><i>›</i>
-                </button>
-                <button class="module-card" data-command="Give me the current system status.">
-                    <span class="module-icon">SYS</span>
-                    <span><b>SYSTEM</b><small>Connection & diagnostics</small></span><i>›</i>
-                </button>
-                <button class="module-card" data-command="What can you do with voice?">
-                    <span class="module-icon">MIC</span>
-                    <span><b>VOICE</b><small>Speech interface</small></span><i>›</i>
-                </button>
-                <button class="module-card" data-command="Explain what you remember from this conversation.">
-                    <span class="module-icon">MEM</span>
-                    <span><b>MEMORY</b><small>Context awareness</small></span><i>›</i>
-                </button>
-            </div>
-            <div class="side-menu-footer">
-                <span>NEURAL CORE</span>
-                <strong>JARVIS ONLINE SYSTEM</strong>
+            <nav class="nav-list">
+                <button class="nav-item active" data-command="Return to the main dashboard."><span>⌂</span><b>DASHBOARD</b></button>
+                <button class="nav-item" data-command="Tell me what you can currently do, including your reasoning and available capabilities."><span>◎</span><b>INTELLIGENCE</b></button>
+                <button class="nav-item" data-command="Give me a detailed system status report."><span>▣</span><b>SYSTEM</b></button>
+                <button class="nav-item" data-command="Tell me about the current voice system and voice capabilities."><span>◉</span><b>VOICE</b></button>
+                <button id="memoryNav" class="nav-item" data-memory-nav="true"><span>◌</span><b>MEMORY</b><em id="memoryBadge">0</em></button>
+                <div class="nav-divider"></div>
+                <button class="nav-item" data-command="Show me the current calendar capabilities and what is connected."><span>▤</span><b>CALENDAR</b></button>
+                <button class="nav-item" data-command="Show me the current task and automation capabilities."><span>☑</span><b>TASKS</b></button>
+                <button class="nav-item" data-command="Tell me about file and document capabilities."><span>□</span><b>FILES</b></button>
+                <button class="nav-item" data-command="Tell me about web search capabilities."><span>⌕</span><b>WEB SEARCH</b></button>
+            </nav>
+            <div class="menu-bottom">
+                <button id="newChatButton" class="new-chat-button">＋ NEW CHAT</button>
+                <button id="settingsButton" class="settings-menu-button">⚙ SETTINGS</button>
+                <div class="menu-version">JARVIS v1.0 • NEURAL CORE</div>
             </div>
         </aside>
     </div>
 
+    <div id="memoryPanel" class="memory-panel" aria-hidden="true">
+        <div class="memory-backdrop" id="memoryBackdrop"></div>
+        <section class="memory-card">
+            <div class="memory-head">
+                <div><span class="section-kicker">LONG-TERM CONTEXT</span><h2>Conversation Memory</h2></div>
+                <button id="closeMemory" class="close-button">×</button>
+            </div>
+            <p class="memory-description">Previous chats are kept here so you can reopen them and continue where you left off.</p>
+            <div id="memoryList" class="memory-list"></div>
+            <button id="clearMemory" class="clear-memory">CLEAR SAVED CONVERSATIONS</button>
+        </section>
+    </div>
+
     <div id="settingsPanel" class="settings hidden">
         <div class="settings-card">
-            <div class="settings-top"><div><span class="section-kicker">SYSTEM CONFIG</span><h2>JARVIS Configuration</h2></div><button id="closeSettings" class="close-button" aria-label="Close settings">×</button></div>
+            <div class="settings-top"><div><span class="section-kicker">SYSTEM CONFIG</span><h2>JARVIS Configuration</h2></div><button id="closeSettings" class="close-button">×</button></div>
             <label>Backend URL</label>
             <input id="backendUrl" type="url" placeholder="https://your-backend-url.com">
             <label>Authentication Token</label>
             <input id="authToken" type="password" placeholder="Optional token">
-            <p>API keys stay on the backend. Your connection settings are stored locally on this device.</p>
+            <p>Gemini and Azure Speech keys stay on the backend. Connection settings are stored locally on this device.</p>
             <div class="settings-actions"><button id="saveSettings">Save Configuration</button></div>
         </div>
     </div>
@@ -133,56 +177,27 @@
 (function () {
     const root = document.querySelector(".app");
     const statusText = document.getElementById("statusText");
-    const link = document.getElementById("telemetryLink");
-    const commandState = document.getElementById("commandState");
-    const voice = document.getElementById("telemetryVoice");
-    const mic = document.getElementById("micButton");
+    const footerStatus = document.getElementById("footerStatus");
+    const backendStatus = document.getElementById("backendStatus");
+    const connectionValue = document.getElementById("connectionValue");
+    const aiStatus = document.getElementById("aiStatus");
+    const voiceStatus = document.getElementById("voiceStatus");
+    const statusLabel = document.getElementById("statusLabel");
+    const coreCaption = document.getElementById("coreCaption");
 
     function sync() {
-        if (!root) return;
         const online = statusText && statusText.textContent.trim() === "ONLINE";
-        if (online) {
-            root.classList.add("online");
-            if (link) link.textContent = "ONLINE";
-        } else {
-            root.classList.remove("online");
-            if (link) link.textContent = "OFFLINE";
-        }
+        root.classList.toggle("online", online);
+        if (footerStatus) footerStatus.textContent = online ? "ONLINE" : "OFFLINE";
+        if (backendStatus) backendStatus.textContent = online ? "ONLINE" : "OFFLINE";
+        if (connectionValue) connectionValue.textContent = online ? "ONLINE" : "OFFLINE";
+        if (aiStatus) aiStatus.textContent = online ? "ONLINE" : "OFFLINE";
+        if (voiceStatus && online) voiceStatus.textContent = "READY";
+        if (statusLabel) statusLabel.textContent = online ? "OPERATIONAL" : "OFFLINE";
+        if (coreCaption) coreCaption.textContent = online ? "LISTENING..." : "STANDBY";
     }
-
-    const observer = new MutationObserver(sync);
-    if (statusText) observer.observe(statusText, {childList: true, subtree: true, characterData: true});
+    if (statusText) new MutationObserver(sync).observe(statusText, {childList:true,subtree:true,characterData:true});
     sync();
-
-    const sideMenu = document.getElementById("sideMenu");
-    const menuButton = document.getElementById("menuButton");
-    const closeMenu = document.getElementById("closeMenu");
-    const backdrop = document.getElementById("sideMenuBackdrop");
-
-    function setMenu(open) {
-        if (!sideMenu) return;
-        sideMenu.classList.toggle("open", open);
-        sideMenu.setAttribute("aria-hidden", String(!open));
-        if (menuButton) menuButton.setAttribute("aria-expanded", String(open));
-        document.body.classList.toggle("menu-open", open);
-    }
-
-    menuButton?.addEventListener("click", () => setMenu(true));
-    closeMenu?.addEventListener("click", () => setMenu(false));
-    backdrop?.addEventListener("click", () => setMenu(false));
-
-    document.addEventListener("click", function (event) {
-        const button = event.target.closest(".quick-actions button, .module-card");
-        if (button) {
-            commandState.textContent = "EXECUTING";
-            setMenu(false);
-            setTimeout(() => commandState.textContent = "READY", 1400);
-        }
-        if (event.target.closest("#micButton")) {
-            voice.textContent = "LISTENING";
-            setTimeout(() => { voice.textContent = "READY"; }, 3500);
-        }
-    });
 })();
 </script>
 </body>
