@@ -18,17 +18,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
-from google import genai
 from twilio.rest import Client as TwilioClient
 from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
 
 load_dotenv()
 
-app = FastAPI(title="JARVIS Gemini Backend", docs_url=None, redoc_url=None)
+app = FastAPI(title="JARVIS OpenAI Backend", docs_url=None, redoc_url=None)
 
-API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6").strip()
+OPENAI_URL = "https://api.openai.com/v1/responses"
 AUTH_TOKEN = os.getenv("JARVIS_AUTH_TOKEN", "").strip()
 
 FISH_AUDIO_API_KEY = os.getenv("FISH_AUDIO_API_KEY", "").strip()
@@ -486,10 +486,10 @@ async def voice_ws(websocket: WebSocket):
         await websocket.close(code=1008, reason="Invalid Twilio signature")
         return
     await websocket.accept()
-    if not API_KEY:
-        await websocket.close(code=1011, reason="Gemini is not configured")
+    if not OPENAI_API_KEY:
+        await websocket.close(code=1011, reason="OpenAI is not configured")
         return
-    client = genai.Client(api_key=API_KEY)
+
     history = []
     try:
         while True:
@@ -499,22 +499,37 @@ async def voice_ws(websocket: WebSocket):
             user_text = str(message.get("voicePrompt", "")).strip()
             if not user_text:
                 continue
+
             history.append({"role": "user", "text": user_text})
-            contents = []
-            for item in history[-20:]:
-                role = "model" if item["role"] == "assistant" else "user"
-                contents.append({"role": role, "parts": [{"text": item["text"]}]})
-            result = client.models.generate_content(
-                model=MODEL,
-                contents=contents,
-                config={
-                    "system_instruction": SYSTEM,
-                    "temperature": 0.35,
-                    "max_output_tokens": 400,
-                    "thinking_config": {"thinking_level": "minimal"},
-                },
-            )
-            reply = (result.text or "I am here.").strip()
+            input_items = [
+                {"role": item["role"], "content": item["text"]}
+                for item in history[-20:]
+            ]
+            payload = {
+                "model": MODEL,
+                "instructions": SYSTEM,
+                "input": input_items,
+                "reasoning": {"effort": "minimal"},
+                "max_output_tokens": 400,
+                "store": False,
+            }
+            try:
+                result = httpx.post(
+                    OPENAI_URL,
+                    headers={
+                        "Authorization": f"Bearer {OPENAI_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=60,
+                )
+                result.raise_for_status()
+                data = result.json()
+                reply = extract_openai_text(data) or "I am here."
+            except Exception:
+                await websocket.close(code=1011, reason="JARVIS voice session failed")
+                return
+
             history.append({"role": "assistant", "text": reply})
             await websocket.send_json({"type": "text", "token": reply, "last": True})
     except WebSocketDisconnect:
@@ -547,7 +562,7 @@ def public_config():
 def health():
     return {
         "ok": True,
-        "gemini_configured": bool(API_KEY),
+        "openai_configured": bool(OPENAI_API_KEY),
         "tts_configured": False,
         "model": MODEL,
         "sessions": len(SESSIONS),
@@ -560,7 +575,7 @@ def status(authorization: Optional[str] = Header(default=None)):
     return {
         "ok": True,
         "service": "JARVIS",
-        "gemini_configured": bool(API_KEY),
+        "openai_configured": bool(OPENAI_API_KEY),
         "tts_configured": False,
         "model": MODEL,
         "active_sessions": len(SESSIONS),
@@ -581,12 +596,78 @@ async def speak(req: SpeakRequest, request: Request, authorization: Optional[str
     return Response(content=audio, media_type="audio/mpeg")
 
     
+def openai_input(history: list[dict], message: str) -> list[dict]:
+    items = []
+    for item in history[-20:]:
+        role = "assistant" if item.get("role") == "assistant" else "user"
+        text = str(item.get("text", "")).strip()
+        if text:
+            items.append({"role": role, "content": text})
+    items.append({"role": "user", "content": message})
+    return items
+
+
+def openai_payload(history: list[dict], message: str, max_output_tokens: int = 768, effort: str = "minimal") -> dict:
+    return {
+        "model": MODEL,
+        "instructions": SYSTEM,
+        "input": openai_input(history, message),
+        "reasoning": {"effort": effort},
+        "max_output_tokens": max_output_tokens,
+        "store": False,
+    }
+
+
+def extract_openai_text(data: dict) -> str:
+    output_text = data.get("output_text")
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text.strip()
+
+    parts = []
+    for item in data.get("output", []) or []:
+        if item.get("type") != "message":
+            continue
+        for content in item.get("content", []) or []:
+            if content.get("type") == "output_text":
+                text = content.get("text", "")
+                if text:
+                    parts.append(text)
+    return "".join(parts).strip()
+
+
+def openai_generate(history: list[dict], message: str, max_output_tokens: int = 768, effort: str = "minimal") -> str:
+    try:
+        result = httpx.post(
+            OPENAI_URL,
+            headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=openai_payload(history, message, max_output_tokens, effort),
+            timeout=90,
+        )
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"OpenAI connection failed: {exc}") from exc
+
+    if result.status_code >= 400:
+        try:
+            detail = result.json().get("error", {}).get("message", result.text[:600])
+        except Exception:
+            detail = result.text[:600]
+        raise RuntimeError(f"OpenAI request failed ({result.status_code}): {detail}")
+
+    reply = extract_openai_text(result.json())
+    if not reply:
+        raise RuntimeError("OpenAI returned an empty response")
+    return reply
+
+
 @app.post("/api/chat/stream")
 def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
-    user = authenticate_request(authorization, request)
+    authenticate_request(authorization, request)
 
-    if not API_KEY:
-        raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
 
     message = req.message.strip()
     fast_reply = local_fast_path(message)
@@ -596,55 +677,73 @@ def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str]
             import json
             yield f"data: {json.dumps({'text': fast_reply}, ensure_ascii=False)}\\n\\n"
             yield "data: [DONE]\\n\\n"
-        return StreamingResponse(fast_events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+        return StreamingResponse(
+            fast_events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
-    client = genai.Client(api_key=API_KEY)
     prior_history = get_session_history(req)
-    contents = []
-    for item in prior_history:
-        role = item.get("role", "user")
-        text = str(item.get("text", "")).strip()
-        if text:
-            contents.append({"role": "model" if role == "assistant" else "user", "parts": [{"text": text}]})
-    contents.append({"role": "user", "parts": [{"text": message}]})
-
-    thinking_level = (
+    effort = (
         "minimal"
-        if len(message) < 120 and not re.search(r"\b(why|how|compare|analy[sz]e|debug|design|plan|calculate)\b", message, flags=re.I)
+        if len(message) < 120 and not re.search(
+            r"\\b(why|how|compare|analy[sz]e|debug|design|plan|calculate)\\b",
+            message,
+            flags=re.I,
+        )
         else "low"
     )
-    config = {
-        "system_instruction": SYSTEM,
-        "temperature": 0.2,
-        "max_output_tokens": 768,
-        "thinking_config": {"thinking_level": thinking_level},
-    }
+    payload = openai_payload(prior_history, message, 768, effort)
 
     def event_stream():
         import json
         parts = []
         try:
-            stream = client.models.generate_content_stream(model=MODEL, contents=contents, config=config)
-            for chunk in stream:
-                text = getattr(chunk, "text", None) or ""
-                if text:
-                    parts.append(text)
-                    yield f"data: {json.dumps({'text': text}, ensure_ascii=False)}\\n\\n"
+            with httpx.stream(
+                "POST",
+                OPENAI_URL,
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                    "Accept": "text/event-stream",
+                },
+                json={**payload, "stream": True},
+                timeout=90,
+            ) as response:
+                if response.status_code >= 400:
+                    body = response.read().decode("utf-8", errors="replace")
+                    try:
+                        detail = json.loads(body).get("error", {}).get("message", body[:600])
+                    except Exception:
+                        detail = body[:600]
+                    raise RuntimeError(f"OpenAI request failed ({response.status_code}): {detail}")
+
+                for line in response.iter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if raw == "[DONE]":
+                        continue
+                    try:
+                        event = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+
+                    event_type = event.get("type", "")
+                    if event_type == "response.output_text.delta":
+                        delta = event.get("delta", "")
+                        if delta:
+                            parts.append(delta)
+                            yield f"data: {json.dumps({'text': delta}, ensure_ascii=False)}\\n\\n"
+                    elif event_type == "response.completed" and not parts:
+                        completed = extract_openai_text(event.get("response", {}))
+                        if completed:
+                            parts.append(completed)
 
             reply = "".join(parts).strip()
-
-            # Fall back to a normal generation request if the upstream stream
-            # completes without exposing any visible text chunks.
             if not reply:
-                fallback = client.models.generate_content(
-                    model=MODEL,
-                    contents=contents,
-                    config=config,
-                )
-                reply = (getattr(fallback, "text", None) or "").strip()
-
-            if not reply:
-                raise RuntimeError("Gemini returned an empty response")
+                reply = openai_generate(prior_history, message, 768, effort)
+                yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\\n\\n"
 
             if req.session_id:
                 save_session(
@@ -655,9 +754,6 @@ def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str]
                         {"role": "assistant", "text": reply},
                     ],
                 )
-
-            if not parts:
-                yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\\n\\n"
 
             yield "data: [DONE]\\n\\n"
         except Exception as exc:
@@ -672,35 +768,21 @@ def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str]
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
-    user = authenticate_request(authorization, request)
+    authenticate_request(authorization, request)
 
-    if not API_KEY:
-        raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
 
     message = req.message.strip()
     fast_reply = local_fast_path(message)
     if fast_reply is not None:
         return ChatResponse(reply=fast_reply, model=MODEL, session_id=req.session_id)
 
-    client = genai.Client(api_key=API_KEY)
     prior_history = get_session_history(req)
-    contents = []
-
-    for item in prior_history:
-        role = item.get("role", "user")
-        text = str(item.get("text", "")).strip()
-        if text:
-            contents.append({
-                "role": "model" if role == "assistant" else "user",
-                "parts": [{"text": text}],
-            })
-
-    contents.append({"role": "user", "parts": [{"text": message}]})
-
-    thinking_level = (
+    effort = (
         "minimal"
         if len(message) < 120 and not re.search(
-            r"\b(why|how|compare|analy[sz]e|debug|design|plan|calculate)\b",
+            r"\\b(why|how|compare|analy[sz]e|debug|design|plan|calculate)\\b",
             message,
             flags=re.I,
         )
@@ -708,31 +790,17 @@ def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Head
     )
 
     try:
-        result = client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config={
-                "system_instruction": SYSTEM,
-                "temperature": 0.2,
-                "max_output_tokens": 512,
-                "thinking_config": {
-                    "thinking_level": thinking_level,
-                },
-            },
-        )
-
-        reply = (result.text or "").strip()
-        if not reply:
-            reply = "I received the request, but Gemini returned no text."
-
+        reply = openai_generate(prior_history, message, 768, effort)
         if req.session_id:
-            updated = prior_history + [
-                {"role": "user", "text": message},
-                {"role": "assistant", "text": reply},
-            ]
-            save_session(req.session_id, updated)
-
+            save_session(
+                req.session_id,
+                prior_history
+                + [
+                    {"role": "user", "text": message},
+                    {"role": "assistant", "text": reply},
+                ],
+            )
         return ChatResponse(reply=reply, model=MODEL, session_id=req.session_id)
-
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Gemini request failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"JARVIS generation failed: {str(exc)[:600]}")
+
