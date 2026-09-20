@@ -630,15 +630,38 @@ def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str]
                 if text:
                     parts.append(text)
                     yield f"data: {json.dumps({'text': text}, ensure_ascii=False)}\\n\\n"
+
             reply = "".join(parts).strip()
+
+            # Fall back to a normal generation request if the upstream stream
+            # completes without exposing any visible text chunks.
             if not reply:
-                reply = "I received the request, but Gemini returned no text."
-                yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\\n\\n"
+                fallback = client.models.generate_content(
+                    model=MODEL,
+                    contents=contents,
+                    config=config,
+                )
+                reply = (getattr(fallback, "text", None) or "").strip()
+
+            if not reply:
+                raise RuntimeError("Gemini returned an empty response")
+
             if req.session_id:
-                save_session(req.session_id, prior_history + [{"role": "user", "text": message}, {"role": "assistant", "text": reply}])
+                save_session(
+                    req.session_id,
+                    prior_history
+                    + [
+                        {"role": "user", "text": message},
+                        {"role": "assistant", "text": reply},
+                    ],
+                )
+
+            if not parts:
+                yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\\n\\n"
+
             yield "data: [DONE]\\n\\n"
         except Exception as exc:
-            yield f"data: {json.dumps({'error': f'Gemini request failed: {exc}'}, ensure_ascii=False)}\\n\\n"
+            yield f"data: {json.dumps({'error': f'JARVIS generation failed: {str(exc)[:600]}'}, ensure_ascii=False)}\\n\\n"
 
     return StreamingResponse(
         event_stream(),
