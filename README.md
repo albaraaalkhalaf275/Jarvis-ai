@@ -28,16 +28,16 @@ Set these on the backend host. Never commit them.
 - FISH_AUDIO_MODEL (defaults to s2.1-pro)
 - ALLOW_GUEST (defaults to true)
 - SUPABASE_URL
-- `SUPABASE_PUBLISHABLE_KEY` (required for Google/Apple account JWT verification)
+- `SUPABASE_PUBLISHABLE_KEY` (public browser key used for Google/Apple sign-in)
 
 ## Manual setup still required
 
 1. Keep the Gemini API key only in the backend environment.
 2. Keep the JARVIS authentication token private.
 3. In the deployed PWA, configure the backend URL. Guest access works without a token. A legacy token can still be used for private/admin access.
-4. For Google/Apple sign-in, create a Supabase project, enable Google and Apple providers, then enter the Supabase URL and publishable key in JARVIS Settings. Supabase supports both providers through its web OAuth flow.
+4. For Google/Apple sign-in, enable both providers in Supabase Auth and add `https://jarvis-ai-1-12xu.onrender.com/` to the Supabase Auth Redirect URLs. Put `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the backend environment. JARVIS loads them automatically.
 5. Add/install the PWA on the iPhone if desired.
-5. Grant microphone permission if using browser voice input.
+6. Grant microphone permission if using browser voice input.
 
 ## Next engineering stages
 
