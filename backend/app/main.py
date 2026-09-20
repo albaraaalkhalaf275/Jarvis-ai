@@ -200,7 +200,7 @@ def status(authorization: Optional[str] = Header(default=None)):
         "ok": True,
         "service": "JARVIS",
         "gemini_configured": bool(API_KEY),
-        "tts_configured": bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION),
+        "tts_configured": bool(FISH_AUDIO_API_KEY),
         "tts_voice": FISH_AUDIO_VOICE_ID,
         "model": MODEL,
         "active_sessions": len(SESSIONS),
