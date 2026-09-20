@@ -56,7 +56,7 @@ function setAuthStatus(text) {
     if (authStatus) authStatus.textContent = text;
 }
 function setSubtitle(text) {
-    if (subtitle) setSubtitle(text);
+    if (subtitle) subtitle.textContent = text;
 }
 async function loadPublicSupabaseConfig() {
     if (!backendUrl) return;
@@ -263,7 +263,7 @@ function startNewChat() {
     renderHistory();
     setMemory(false);
     setMenu(false);
-    setSubtitle("New conversation ready.";
+    setSubtitle("New conversation ready.");
     commandState.textContent = "NEW CHAT";
     setTimeout(() => commandState.textContent = "READY", 900);
     messageInput.focus();
@@ -280,7 +280,7 @@ function openArchivedChat(id) {
     renderHistory();
     setMemory(false);
     setMenu(false);
-    setSubtitle("Memory restored. Continue this conversation.";
+    setSubtitle("Memory restored. Continue this conversation.");
     commandState.textContent = "MEMORY RESTORED";
     setTimeout(() => commandState.textContent = "READY", 1100);
     messageInput.focus();
@@ -312,7 +312,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
 async function checkBackend() {
     if (!backendUrl) {
         setStatus(false, "NOT CONFIGURED");
-        setSubtitle("Open Settings to connect JARVIS.";
+        setSubtitle("Open Settings to connect JARVIS.");
         return false;
     }
     const now = Date.now();
@@ -327,7 +327,7 @@ async function checkBackend() {
         if (!data.gemini_configured) throw new Error("Gemini is not configured");
         backendFailures = 0;
         setStatus(true, "ONLINE");
-        setSubtitle("JARVIS systems operational.";
+        setSubtitle("JARVIS systems operational.");
         document.getElementById("voiceStatus").textContent = data.tts_configured ? "ONLINE" : "FALLBACK";
         document.getElementById("systemFoot").textContent = "ALL SYSTEMS OPERATIONAL";
         return true;
@@ -335,11 +335,11 @@ async function checkBackend() {
         backendFailures += 1;
         if (backendFailures >= 3) {
             setStatus(false, "OFFLINE");
-            setSubtitle(error.name === "AbortError" ? "Backend is waking up or unavailable." : "Backend connection unavailable. Retrying automatically.";
+            setSubtitle(error.name === "AbortError" ? "Backend is waking up or unavailable." : "Backend connection unavailable. Retrying automatically.");
             document.getElementById("systemFoot").textContent = "AUTO-RECONNECT ACTIVE";
         } else {
             setStatus(false, "CONNECTING");
-            setSubtitle("Connecting to JARVIS...";
+            setSubtitle("Connecting to JARVIS...");
             document.getElementById("systemFoot").textContent = "RETRYING CONNECTION";
         }
         return false;
@@ -369,7 +369,7 @@ async function sendMessage(message) {
     renderActivity();
 
     messageInput.value = "";
-    setSubtitle("Processing request...";
+    setSubtitle("Processing request...");
     setBusy(true);
 
     try {
@@ -407,7 +407,7 @@ async function sendMessage(message) {
             }
             replyElement.textContent = reply;
             messages.scrollTop = messages.scrollHeight;
-            setSubtitle("JARVIS is responding...";
+            setSubtitle("JARVIS is responding...");
         };
 
         let done = false;
@@ -453,12 +453,12 @@ async function sendMessage(message) {
         saveCurrentChat();
         renderActivity();
         setStatus(true, "ONLINE");
-        setSubtitle("Awaiting your command.";
+        setSubtitle("Awaiting your command.");
         void speak(reply);
     } catch (error) {
         const errorMessage = error.name === "AbortError" ? "JARVIS timed out waiting for the backend." : "Connection error: " + error.message;
         addMessage(errorMessage, "jarvis");
-        setSubtitle("Request failed. Check the connection.";
+        setSubtitle("Request failed. Check the connection.");
         checkBackend();
     } finally {
         setBusy(false);
@@ -569,12 +569,12 @@ if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.lang = "en-US"; recognition.interimResults = false; recognition.continuous = false;
-    recognition.onstart = () => { micButton.textContent = "🔴"; setSubtitle("Listening..."; };
+    recognition.onstart = () => { micButton.textContent = "🔴"; setSubtitle("Listening..."); };
     recognition.onresult = event => {
         const transcript = event.results?.[0]?.[0]?.transcript?.trim();
         if (transcript) { messageInput.value = transcript; sendMessage(transcript); }
     };
-    recognition.onerror = event => { micButton.textContent = "◉"; setSubtitle(event.error === "not-allowed" ? "Microphone permission was denied." : "Voice input failed."; };
+    recognition.onerror = event => { micButton.textContent = "◉"; setSubtitle(event.error === "not-allowed" ? "Microphone permission was denied." : "Voice input failed."); };
     recognition.onend = () => { micButton.textContent = "◉"; };
 }
 micButton.addEventListener("click", () => {
