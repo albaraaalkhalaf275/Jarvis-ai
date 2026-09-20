@@ -347,7 +347,7 @@ async function checkBackend() {
         if (!response.ok) throw new Error("HTTP " + response.status);
         const data = await response.json();
         window.jarvisModel = data.model || "ONLINE";
-        if (!data.gemini_configured) throw new Error("Gemini is not configured");
+        if (!data.openai_configured) throw new Error("OpenAI is not configured");
         backendFailures = 0;
         setStatus(true, "ONLINE");
         setSubtitle("JARVIS systems operational.");
