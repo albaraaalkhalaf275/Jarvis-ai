@@ -2,132 +2,138 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#05070c">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#03070d">
     <meta name="apple-mobile-web-app-capable" content="yes">
-
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>JARVIS</title>
-
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
+<div class="app">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
 
-    <div class="app">
-
-        <header>
+    <header>
+        <div class="brand">
+            <div class="brand-mark">J</div>
             <div>
                 <div class="logo">JARVIS</div>
-                <div class="status">
-                    <span id="statusDot"></span>
-                    <span id="statusText">OFFLINE</span>
-                </div>
+                <div class="system-label">PERSONAL INTELLIGENCE SYSTEM</div>
             </div>
+        </div>
+        <div class="header-right">
+            <div class="live-status"><span id="statusDot"></span><span id="statusText">OFFLINE</span></div>
+            <button id="settingsButton" class="icon-button" aria-label="Open settings">⚙</button>
+        </div>
+    </header>
 
-            <button id="settingsButton">⚙</button>
-        </header>
-
-        <main>
-
-            <section class="reactor-section">
-
-                <div class="reactor">
-                    <div class="reactor-core">J</div>
-                </div>
-
+    <main>
+        <section class="hero">
+            <div class="hero-copy">
+                <div class="eyebrow"><span class="pulse-dot"></span> NEURAL CORE</div>
                 <h1>Good day.</h1>
                 <p id="subtitle">Awaiting your command.</p>
+            </div>
 
-            </section>
+            <div class="reactor-wrap">
+                <div class="orbit orbit-a"></div>
+                <div class="orbit orbit-b"></div>
+                <div class="orbit orbit-c"></div>
+                <div class="reactor">
+                    <div class="reactor-ring"></div>
+                    <div class="reactor-core">J</div>
+                </div>
+                <div class="reactor-caption">JARVIS CORE</div>
+            </div>
 
-            <section id="messages" class="messages"></section>
+            <div class="telemetry">
+                <div><span>LINK</span><strong id="telemetryLink">OFFLINE</strong></div>
+                <div><span>VOICE</span><strong id="telemetryVoice">READY</strong></div>
+                <div><span>SESSION</span><strong>ACTIVE</strong></div>
+            </div>
+        </section>
+
+        <section class="command-panel">
+            <div class="panel-heading">
+                <div><span class="section-kicker">COMMAND CONSOLE</span><span class="command-state" id="commandState">READY</span></div>
+                <span class="hint">Tap a module or speak</span>
+            </div>
+
+            <section id="messages" class="messages" aria-live="polite"></section>
 
             <div class="quick-actions">
-                <button data-command="What can you do?">
-                    Capabilities
-                </button>
-
-                <button data-command="What is the current time?">
-                    Time
-                </button>
-
-                <button data-command="Give me a system status report.">
-                    System Status
-                </button>
+                <button data-command="What can you do?"><span>✦</span> Capabilities</button>
+                <button data-command="What is the current time?"><span>◷</span> Time</button>
+                <button data-command="Give me a system status report."><span>⌁</span> System Status</button>
             </div>
 
             <form id="chatForm" class="input-area">
-
-                <button
-                    type="button"
-                    id="micButton"
-                    title="Voice input">
-                    🎙
-                </button>
-
-                <input
-                    id="messageInput"
-                    type="text"
-                    autocomplete="off"
-                    placeholder="Speak to JARVIS..."
-                >
-
-                <button type="submit" id="sendButton">
-                    ➤
-                </button>
-
+                <button type="button" id="micButton" class="mic-button" title="Voice input" aria-label="Voice input">◉</button>
+                <input id="messageInput" type="text" autocomplete="off" placeholder="Ask JARVIS anything...">
+                <button type="submit" id="sendButton" class="send-button" aria-label="Send">↑</button>
             </form>
+        </section>
 
-        </main>
+        <section class="module-grid">
+            <button class="module-card" data-command="What capabilities are currently available to me?"><span class="module-icon">AI</span><span><b>INTELLIGENCE</b><small>Conversation & reasoning</small></span><i>›</i></button>
+            <button class="module-card" data-command="Give me the current system status."><span class="module-icon">SYS</span><span><b>SYSTEM</b><small>Connection & diagnostics</small></span><i>›</i></button>
+            <button class="module-card" data-command="What can you do with voice?"><span class="module-icon">MIC</span><span><b>VOICE</b><small>Speech interface</small></span><i>›</i></button>
+            <button class="module-card" data-command="Explain what you remember from this conversation."><span class="module-icon">MEM</span><span><b>MEMORY</b><small>Context awareness</small></span><i>›</i></button>
+        </section>
+    </main>
 
-        <div id="settingsPanel" class="settings hidden">
-
-            <div class="settings-card">
-
-                <h2>JARVIS Configuration</h2>
-
-                <label>
-                    Backend URL
-                </label>
-
-                <input
-                    id="backendUrl"
-                    type="url"
-                    placeholder="https://your-backend-url.com"
-                >
-
-                <label>
-                    Authentication Token
-                </label>
-
-                <input
-                    id="authToken"
-                    type="password"
-                    placeholder="Optional token"
-                >
-
-                <p>
-                    Your Gemini API key must remain on the backend.
-                </p>
-
-                <div class="settings-actions">
-                    <button id="saveSettings">
-                        Save
-                    </button>
-
-                    <button id="closeSettings">
-                        Close
-                    </button>
-                </div>
-
-            </div>
-
+    <div id="settingsPanel" class="settings hidden">
+        <div class="settings-card">
+            <div class="settings-top"><div><span class="section-kicker">SYSTEM CONFIG</span><h2>JARVIS Configuration</h2></div><button id="closeSettings" class="close-button" aria-label="Close settings">×</button></div>
+            <label>Backend URL</label>
+            <input id="backendUrl" type="url" placeholder="https://your-backend-url.com">
+            <label>Authentication Token</label>
+            <input id="authToken" type="password" placeholder="Optional token">
+            <p>API keys stay on the backend. Your connection settings are stored locally on this device.</p>
+            <div class="settings-actions"><button id="saveSettings">Save Configuration</button></div>
         </div>
-
     </div>
+</div>
+<script src="app.js"></script>
+<script>
+(function () {
+    const root = document.querySelector(".app");
+    const statusText = document.getElementById("statusText");
+    const link = document.getElementById("telemetryLink");
+    const commandState = document.getElementById("commandState");
+    const voice = document.getElementById("telemetryVoice");
+    const mic = document.getElementById("micButton");
 
-    <script src="app.js"></script>
+    function sync() {
+        if (!root) return;
+        const online = statusText && statusText.textContent.trim() === "ONLINE";
+        if (online) {
+            root.classList.add("online");
+            if (link) link.textContent = "ONLINE";
+        } else {
+            root.classList.remove("online");
+            if (link) link.textContent = "OFFLINE";
+        }
+    }
 
+    const observer = new MutationObserver(sync);
+    if (statusText) observer.observe(statusText, {childList: true, subtree: true, characterData: true});
+    sync();
+
+    document.addEventListener("click", function (event) {
+        const button = event.target.closest(".quick-actions button, .module-card");
+        if (button) {
+            commandState.textContent = "EXECUTING";
+            setTimeout(() => commandState.textContent = "READY", 1400);
+        }
+        if (event.target.closest("#micButton")) {
+            voice.textContent = "LISTENING";
+            setTimeout(() => { voice.textContent = "READY"; }, 3500);
+        }
+    });
+})();
+</script>
 </body>
 </html>
