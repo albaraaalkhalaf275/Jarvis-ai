@@ -55,6 +55,37 @@ function newId() {
 function setAuthStatus(text) {
     if (authStatus) authStatus.textContent = text;
 }
+function setSubtitle(text) {
+    if (subtitle) setSubtitle(text);
+}
+async function loadPublicSupabaseConfig() {
+    if (!backendUrl) return;
+    try {
+        const response = await fetchWithTimeout(backendUrl + "/api/config?ts=" + Date.now(), {cache:"no-store"}, 8000);
+        if (!response.ok) return;
+        const config = await response.json();
+        if (config.supabase_url && config.supabase_publishable_key) {
+            savedSupabaseUrl = String(config.supabase_url).replace(/\/$/, "");
+            savedSupabaseKey = String(config.supabase_publishable_key);
+            writeStorage("jarvis_supabase_url", savedSupabaseUrl);
+            writeStorage("jarvis_supabase_key", savedSupabaseKey);
+            if (supabaseUrlInput) supabaseUrlInput.value = savedSupabaseUrl;
+            if (supabaseKeyInput) supabaseKeyInput.value = savedSupabaseKey;
+        }
+    } catch {}
+}
+function handleAuthRedirectError() {
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+    if (!hash) return;
+    const params = new URLSearchParams(hash);
+    const error = params.get("error_description") || params.get("error");
+    if (error) {
+        setAuthStatus(decodeURIComponent(error.replace(/\+/g, " ")));
+        authPanel?.classList.remove("hidden");
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+}
+
 function setAccountLabel() {
     if (!accountButton) return;
     if (authSession?.user) {
@@ -69,8 +100,9 @@ function setAccountLabel() {
 async function initAuth() {
     savedSupabaseUrl = readStorage("jarvis_supabase_url");
     savedSupabaseKey = readStorage("jarvis_supabase_key");
+    await loadPublicSupabaseConfig();
     if (!window.supabase || !savedSupabaseUrl || !savedSupabaseKey) {
-        setAuthStatus("Guest mode is available. Add Supabase settings to enable Google and Apple.");
+        setAuthStatus("Guest mode is available. Account sign-in is not configured yet.");
         setAccountLabel();
         return;
     }
@@ -97,11 +129,15 @@ async function signInProvider(provider) {
         return;
     }
     setAuthStatus("Opening " + provider + " sign-in...");
-    const { error } = await authClient.auth.signInWithOAuth({
+    const { data, error } = await authClient.auth.signInWithOAuth({
         provider,
         options: { redirectTo: window.location.origin + window.location.pathname }
     });
-    if (error) setAuthStatus(error.message);
+    if (error) {
+        setAuthStatus(error.message);
+        return;
+    }
+    if (!data?.url) setAuthStatus("The " + provider + " sign-in provider did not return an authorization URL.");
 }
 
 backendUrl = (readStorage("jarvis_backend_url") || "https://jarvis-ai-uhe3.onrender.com").trim().replace(/\/$/, "");
@@ -227,7 +263,7 @@ function startNewChat() {
     renderHistory();
     setMemory(false);
     setMenu(false);
-    subtitle.textContent = "New conversation ready.";
+    setSubtitle("New conversation ready.";
     commandState.textContent = "NEW CHAT";
     setTimeout(() => commandState.textContent = "READY", 900);
     messageInput.focus();
@@ -244,7 +280,7 @@ function openArchivedChat(id) {
     renderHistory();
     setMemory(false);
     setMenu(false);
-    subtitle.textContent = "Memory restored. Continue this conversation.";
+    setSubtitle("Memory restored. Continue this conversation.";
     commandState.textContent = "MEMORY RESTORED";
     setTimeout(() => commandState.textContent = "READY", 1100);
     messageInput.focus();
@@ -276,7 +312,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
 async function checkBackend() {
     if (!backendUrl) {
         setStatus(false, "NOT CONFIGURED");
-        subtitle.textContent = "Open Settings to connect JARVIS.";
+        setSubtitle("Open Settings to connect JARVIS.";
         return false;
     }
     const now = Date.now();
@@ -291,7 +327,7 @@ async function checkBackend() {
         if (!data.gemini_configured) throw new Error("Gemini is not configured");
         backendFailures = 0;
         setStatus(true, "ONLINE");
-        subtitle.textContent = "JARVIS systems operational.";
+        setSubtitle("JARVIS systems operational.";
         document.getElementById("voiceStatus").textContent = data.tts_configured ? "ONLINE" : "FALLBACK";
         document.getElementById("systemFoot").textContent = "ALL SYSTEMS OPERATIONAL";
         return true;
@@ -299,11 +335,11 @@ async function checkBackend() {
         backendFailures += 1;
         if (backendFailures >= 3) {
             setStatus(false, "OFFLINE");
-            subtitle.textContent = error.name === "AbortError" ? "Backend is waking up or unavailable." : "Backend connection unavailable. Retrying automatically.";
+            setSubtitle(error.name === "AbortError" ? "Backend is waking up or unavailable." : "Backend connection unavailable. Retrying automatically.";
             document.getElementById("systemFoot").textContent = "AUTO-RECONNECT ACTIVE";
         } else {
             setStatus(false, "CONNECTING");
-            subtitle.textContent = "Connecting to JARVIS...";
+            setSubtitle("Connecting to JARVIS...";
             document.getElementById("systemFoot").textContent = "RETRYING CONNECTION";
         }
         return false;
@@ -333,7 +369,7 @@ async function sendMessage(message) {
     renderActivity();
 
     messageInput.value = "";
-    subtitle.textContent = "Processing request...";
+    setSubtitle("Processing request...";
     setBusy(true);
 
     try {
@@ -371,7 +407,7 @@ async function sendMessage(message) {
             }
             replyElement.textContent = reply;
             messages.scrollTop = messages.scrollHeight;
-            subtitle.textContent = "JARVIS is responding...";
+            setSubtitle("JARVIS is responding...";
         };
 
         let done = false;
@@ -417,12 +453,12 @@ async function sendMessage(message) {
         saveCurrentChat();
         renderActivity();
         setStatus(true, "ONLINE");
-        subtitle.textContent = "Awaiting your command.";
+        setSubtitle("Awaiting your command.";
         void speak(reply);
     } catch (error) {
         const errorMessage = error.name === "AbortError" ? "JARVIS timed out waiting for the backend." : "Connection error: " + error.message;
         addMessage(errorMessage, "jarvis");
-        subtitle.textContent = "Request failed. Check the connection.";
+        setSubtitle("Request failed. Check the connection.";
         checkBackend();
     } finally {
         setBusy(false);
@@ -533,12 +569,12 @@ if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.lang = "en-US"; recognition.interimResults = false; recognition.continuous = false;
-    recognition.onstart = () => { micButton.textContent = "🔴"; subtitle.textContent = "Listening..."; };
+    recognition.onstart = () => { micButton.textContent = "🔴"; setSubtitle("Listening..."; };
     recognition.onresult = event => {
         const transcript = event.results?.[0]?.[0]?.transcript?.trim();
         if (transcript) { messageInput.value = transcript; sendMessage(transcript); }
     };
-    recognition.onerror = event => { micButton.textContent = "◉"; subtitle.textContent = event.error === "not-allowed" ? "Microphone permission was denied." : "Voice input failed."; };
+    recognition.onerror = event => { micButton.textContent = "◉"; setSubtitle(event.error === "not-allowed" ? "Microphone permission was denied." : "Voice input failed."; };
     recognition.onend = () => { micButton.textContent = "◉"; };
 }
 micButton.addEventListener("click", () => {
@@ -559,10 +595,10 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
+handleAuthRedirectError();
 renderHistory();
 renderMemory();
-initAuth();
-checkBackend();
+initAuth().finally(() => checkBackend());
 setInterval(() => checkBackend(), 15000);
 messageInput.focus();
 
