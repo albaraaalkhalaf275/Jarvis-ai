@@ -13,6 +13,7 @@ import jwt
 from jwt import PyJWKClient
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
@@ -278,6 +279,72 @@ async def speak(req: SpeakRequest, request: Request, authorization: Optional[str
     return Response(content=audio, media_type="audio/mpeg")
 
     
+@app.post("/api/chat/stream")
+def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
+    check_auth(authorization, request)
+
+    if not API_KEY:
+        raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
+
+    message = req.message.strip()
+    fast_reply = local_fast_path(message)
+
+    if fast_reply is not None:
+        def fast_events():
+            import json
+            yield f"data: {json.dumps({'text': fast_reply}, ensure_ascii=False)}\\n\\n"
+            yield "data: [DONE]\\n\\n"
+        return StreamingResponse(fast_events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    client = genai.Client(api_key=API_KEY)
+    prior_history = get_session_history(req)
+    contents = []
+    for item in prior_history:
+        role = item.get("role", "user")
+        text = str(item.get("text", "")).strip()
+        if text:
+            contents.append({"role": "model" if role == "assistant" else "user", "parts": [{"text": text}]})
+    contents.append({"role": "user", "parts": [{"text": message}]})
+
+    thinking_level = (
+        "minimal"
+        if len(message) < 120 and not re.search(r"\b(why|how|compare|analy[sz]e|debug|design|plan|calculate)\b", message, flags=re.I)
+        else "low"
+    )
+    config = {
+        "system_instruction": SYSTEM,
+        "temperature": 0.2,
+        "max_output_tokens": 512,
+        "thinking_config": {"thinking_level": thinking_level},
+    }
+
+    def event_stream():
+        import json
+        parts = []
+        try:
+            stream = client.models.generate_content_stream(model=MODEL, contents=contents, config=config)
+            for chunk in stream:
+                text = getattr(chunk, "text", None) or ""
+                if text:
+                    parts.append(text)
+                    yield f"data: {json.dumps({'text': text}, ensure_ascii=False)}\\n\\n"
+            reply = "".join(parts).strip()
+            if not reply:
+                reply = "I received the request, but Gemini returned no text."
+                yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\\n\\n"
+            if req.session_id:
+                save_session(req.session_id, prior_history + [{"role": "user", "text": message}, {"role": "assistant", "text": reply}])
+            yield "data: [DONE]\\n\\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'error': f'Gemini request failed: {exc}'}, ensure_ascii=False)}\\n\\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
     check_auth(authorization, request)
