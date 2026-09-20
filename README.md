@@ -26,13 +26,16 @@ Set these on the backend host. Never commit them.
 - FISH_AUDIO_API_KEY
 - FISH_AUDIO_VOICE_ID (defaults to the JARVIS MCU voice ID)
 - FISH_AUDIO_MODEL (defaults to s2.1-pro)
+- ALLOW_GUEST (defaults to true)
+- SUPABASE_URL (required for Google/Apple account JWT verification)
 
 ## Manual setup still required
 
 1. Keep the Gemini API key only in the backend environment.
 2. Keep the JARVIS authentication token private.
-3. In the deployed PWA, configure the backend URL and authentication token.
-4. Add/install the PWA on the iPhone if desired.
+3. In the deployed PWA, configure the backend URL. Guest access works without a token. A legacy token can still be used for private/admin access.
+4. For Google/Apple sign-in, create a Supabase project, enable Google and Apple providers, then enter the Supabase URL and publishable key in JARVIS Settings. Supabase supports both providers through its web OAuth flow. citeturn2search6turn2search0
+5. Add/install the PWA on the iPhone if desired.
 5. Grant microphone permission if using browser voice input.
 
 ## Next engineering stages
