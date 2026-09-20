@@ -12,13 +12,15 @@ import httpx
 import jwt
 from jwt import PyJWKClient
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi import FastAPI, Header, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from google import genai
+from twilio.rest import Client as TwilioClient
+from twilio.twiml.voice_response import VoiceResponse
 
 load_dotenv()
 
@@ -34,6 +36,10 @@ FISH_AUDIO_VOICE_ID = os.getenv(
     "612b878b113047d9a770c069c8b4fdfe",
 ).strip()
 FISH_AUDIO_MODEL = os.getenv("FISH_AUDIO_MODEL", "s2.1-pro").strip()
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
+JARVIS_OWNER_PHONE = os.getenv("JARVIS_OWNER_PHONE", "").strip()
 ALLOW_GUEST = os.getenv("ALLOW_GUEST", "true").strip().lower() in {"1", "true", "yes"}
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else ""
@@ -343,6 +349,76 @@ async def fish_tts(text: str) -> bytes:
 
     return result.content
 
+
+@app.post("/api/voice/twiml")
+async def voice_twiml(request: Request):
+    response = VoiceResponse()
+    connect = response.connect()
+    connect.conversation_relay(
+        url=f"wss://{request.url.hostname}/api/voice/ws",
+        welcome_greeting="JARVIS is online. How can I assist you?"
+    )
+    return Response(content=str(response), media_type="application/xml")
+
+
+@app.post("/api/voice/call")
+async def voice_call(request: Request, authorization: Optional[str] = Header(default=None)):
+    check_auth(authorization, request)
+    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER or not JARVIS_OWNER_PHONE:
+        raise HTTPException(status_code=503, detail="Twilio voice is not configured")
+    client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    try:
+        call = client.calls.create(
+            to=JARVIS_OWNER_PHONE,
+            from_=TWILIO_PHONE_NUMBER,
+            url=f"https://{request.url.hostname}/api/voice/twiml",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Twilio call failed: {exc}")
+    return {"ok": True, "call_sid": call.sid, "status": call.status}
+
+
+@app.websocket("/api/voice/ws")
+async def voice_ws(websocket: WebSocket):
+    await websocket.accept()
+    if not API_KEY:
+        await websocket.close(code=1011, reason="Gemini is not configured")
+        return
+    client = genai.Client(api_key=API_KEY)
+    history = []
+    try:
+        while True:
+            message = await websocket.receive_json()
+            if message.get("type") != "prompt":
+                continue
+            user_text = str(message.get("voicePrompt", "")).strip()
+            if not user_text:
+                continue
+            history.append({"role": "user", "text": user_text})
+            contents = []
+            for item in history[-20:]:
+                role = "model" if item["role"] == "assistant" else "user"
+                contents.append({"role": role, "parts": [{"text": item["text"]}]})
+            result = client.models.generate_content(
+                model=MODEL,
+                contents=contents,
+                config={
+                    "system_instruction": SYSTEM,
+                    "temperature": 0.35,
+                    "max_output_tokens": 400,
+                    "thinking_config": {"thinking_level": "minimal"},
+                },
+            )
+            reply = (result.text or "I am here.").strip()
+            history.append({"role": "assistant", "text": reply})
+            await websocket.send_json({"type": "text", "token": reply, "last": True})
+    except WebSocketDisconnect:
+        return
+    except Exception:
+        try:
+            await websocket.close(code=1011, reason="JARVIS voice session failed")
+        except Exception:
+            pass
 
 @app.get("/health")
 def health():
