@@ -411,7 +411,7 @@ async function sendMessage(message) {
         renderActivity();
         setStatus(true, "ONLINE");
         subtitle.textContent = "Awaiting your command.";
-        await speak(reply);
+        void speak(reply);
     } catch (error) {
         const errorMessage = error.name === "AbortError" ? "JARVIS timed out waiting for the backend." : "Connection error: " + error.message;
         addMessage(errorMessage, "jarvis");
@@ -456,7 +456,10 @@ settingsButton?.addEventListener("click", () => {
 closeSettings?.addEventListener("click", () => settingsPanel.classList.add("hidden"));
 accountButton?.addEventListener("click", () => { setMenu(false); authPanel?.classList.remove("hidden"); });
 closeAuth?.addEventListener("click", () => authPanel?.classList.add("hidden"));
-guestButton?.addEventListener("click", () => {
+guestButton?.addEventListener("click", async () => {
+    if (authClient && authSession) {
+        try { await authClient.auth.signOut(); } catch {}
+    }
     authSession = null;
     setAccountLabel();
     setAuthStatus("Guest mode active. Your conversations remain local on this device.");
