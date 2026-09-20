@@ -15,20 +15,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from google import genai
 
 load_dotenv()
 
-app = FastAPI(title="JARVIS Gemini Backend")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="JARVIS Gemini Backend", docs_url=None, redoc_url=None)
 
 API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
@@ -48,8 +42,75 @@ SUPABASE_JWKS = PyJWKClient(SUPABASE_JWKS_URL) if SUPABASE_JWKS_URL else None
 GUEST_RATE_LIMIT = int(os.getenv("GUEST_RATE_LIMIT", "20"))
 GUEST_RATE_WINDOW = 60
 GUEST_HITS: dict[str, list[float]] = {}
+REQUEST_HITS: dict[str, list[float]] = {}
+RATE_LIMIT = int(os.getenv("RATE_LIMIT", "60"))
+RATE_WINDOW = 60
+MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "262144"))
+FRONTEND_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv(
+        "FRONTEND_ORIGINS",
+        "https://jarvis-ai-1-12xu.onrender.com,http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if origin.strip()
+]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "jarvis-ai-uhe3.onrender.com,localhost,127.0.0.1",
+    ).split(",")
+    if host.strip()
+]
 
-SYSTEM = """
+class SecurityMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method in {"POST", "PUT", "PATCH"}:
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > MAX_BODY_BYTES:
+                return Response("Request too large", status_code=413)
+
+        if request.url.path.startswith("/api/") and request.url.path != "/api/status":
+            ip = request.client.host if request.client else "unknown"
+            key = f"{ip}:{request.url.path}"
+            now = time.time()
+            hits = [t for t in REQUEST_HITS.get(key, []) if now - t < RATE_WINDOW]
+            if len(hits) >= RATE_LIMIT:
+                return Response(
+                    "Rate limit exceeded. Please slow down.",
+                    status_code=429,
+                    headers={"Retry-After": "60", "Cache-Control": "no-store"},
+                )
+            hits.append(now)
+            REQUEST_HITS[key] = hits
+
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), geolocation=(), payment=(), usb=()"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-XSS-Protection"] = "0"
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+        return response
+
+app.add_middleware(SecurityMiddleware)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=ALLOWED_HOSTS,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=FRONTEND_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+API_KEY = """
 You are JARVIS, a personal AI assistant.
 
 Be intelligent, concise, practical, and honest.
