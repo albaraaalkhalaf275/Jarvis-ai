@@ -104,7 +104,7 @@ async function signInProvider(provider) {
     if (error) setAuthStatus(error.message);
 }
 
-backendUrl = readStorage("jarvis_backend_url").trim().replace(/\/$/, "");
+backendUrl = (readStorage("jarvis_backend_url") || "https://jarvis-ai-uhe3.onrender.com").trim().replace(/\/$/, "");
 authToken = readStorage("jarvis_auth_token");
 backendUrlInput.value = backendUrl;
 authTokenInput.value = authToken;
