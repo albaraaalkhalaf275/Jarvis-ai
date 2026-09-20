@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#02070b">
+    <meta name="description" content="JARVIS personal AI assistant. Secure conversational intelligence for web and mobile.">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index,follow">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>JARVIS</title>
@@ -194,36 +197,6 @@
     </div>
 </div>
 <script src="app.js"></script>
-<script>
-(function () {
-    const root = document.querySelector(".app");
-    const statusText = document.getElementById("statusText");
-    const footerStatus = document.getElementById("footerStatus");
-    const backendStatus = document.getElementById("backendStatus");
-    const connectionValue = document.getElementById("connectionValue");
-    const aiStatus = document.getElementById("aiStatus");
-    const voiceStatus = document.getElementById("voiceStatus");
-    const statusLabel = document.getElementById("statusLabel");
-    const coreCaption = document.getElementById("coreCaption");
 
-    function sync() {
-        const state = statusText ? statusText.textContent.trim() : "OFFLINE";
-        const online = state === "ONLINE";
-        const connecting = state === "CONNECTING";
-        root.classList.toggle("online", online);
-
-        const displayState = online ? "ONLINE" : connecting ? "CONNECTING" : state;
-        if (footerStatus) footerStatus.textContent = displayState;
-        if (backendStatus) backendStatus.textContent = displayState;
-        if (connectionValue) connectionValue.textContent = displayState;
-        if (aiStatus) aiStatus.textContent = displayState;
-        if (voiceStatus) voiceStatus.textContent = online ? "READY" : connecting ? "CONNECTING" : "OFFLINE";
-        if (statusLabel) statusLabel.textContent = online ? "OPERATIONAL" : connecting ? "CONNECTING" : state;
-        if (coreCaption) coreCaption.textContent = online ? "LISTENING..." : connecting ? "CONNECTING..." : "STANDBY";
-    }
-    if (statusText) new MutationObserver(sync).observe(statusText, {childList:true,subtree:true,characterData:true});
-    sync();
-})();
-</script>
 </body>
 </html>
