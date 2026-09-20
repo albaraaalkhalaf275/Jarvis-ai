@@ -333,17 +333,79 @@ async function sendMessage(message) {
         const headers = {"Content-Type":"application/json"};
         if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
         else if (authToken) headers.Authorization = "Bearer " + authToken;
-        const response = await fetchWithTimeout(backendUrl + "/api/chat", {
+        const response = await fetchWithTimeout(backendUrl + "/api/chat/stream", {
             method:"POST", headers,
             body:JSON.stringify({message, history:historyForRequest, session_id:sessionId})
         }, 60000);
 
-        let data;
-        try { data = await response.json(); } catch { throw new Error("Backend returned HTTP " + response.status); }
-        if (!response.ok) throw new Error(data.detail || "Request failed (HTTP " + response.status + ")");
+        if (!response.ok) {
+            let detail = "Request failed (HTTP " + response.status + ")";
+            try {
+                const data = await response.json();
+                detail = data.detail || detail;
+            } catch {}
+            throw new Error(detail);
+        }
 
-        const reply = String(data.reply || "No response received.").trim();
-        addMessage(reply, "jarvis");
+        if (!response.body) throw new Error("Streaming is not supported by this browser.");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let reply = "";
+        let replyElement = null;
+
+        const appendChunk = chunk => {
+            reply += chunk;
+            if (!replyElement) {
+                replyElement = document.createElement("div");
+                replyElement.className = "message jarvis";
+                messages.appendChild(replyElement);
+            }
+            replyElement.textContent = reply;
+            messages.scrollTop = messages.scrollHeight;
+            subtitle.textContent = "JARVIS is responding...";
+        };
+
+        let done = false;
+        while (!done) {
+            const result = await reader.read();
+            done = result.done;
+            buffer += decoder.decode(result.value || new Uint8Array(), {stream: !done});
+            const events = buffer.split("\\n\\n");
+            buffer = events.pop() || "";
+
+            for (const event of events) {
+                const line = event.split("\\n").find(item => item.startsWith("data:"));
+                if (!line) continue;
+                const payload = line.slice(5).trim();
+                if (payload === "[DONE]") continue;
+                let data;
+                try { data = JSON.parse(payload); } catch { continue; }
+                if (data.error) throw new Error(data.error);
+                if (data.text) appendChunk(String(data.text));
+            }
+        }
+
+        if (buffer.trim()) {
+            const line = buffer.split("\\n").find(item => item.startsWith("data:"));
+            if (line) {
+                const payload = line.slice(5).trim();
+                if (payload && payload !== "[DONE]") {
+                    try {
+                        const data = JSON.parse(payload);
+                        if (data.error) throw new Error(data.error);
+                        if (data.text) appendChunk(String(data.text));
+                    } catch (error) {
+                        if (error.message && !error.message.startsWith("Unexpected token")) throw error;
+                    }
+                }
+            }
+        }
+
+        reply = reply.trim() || "No response received.";
+        if (replyElement) replyElement.textContent = reply;
+        else addMessage(reply, "jarvis");
         history.push({role:"assistant", text:reply});
         saveCurrentChat();
         renderActivity();
