@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Optional
 
 import httpx
+import jwt
+from jwt import PyJWKClient
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,6 +38,11 @@ FISH_AUDIO_VOICE_ID = os.getenv(
     "612b878b113047d9a770c069c8b4fdfe",
 ).strip()
 FISH_AUDIO_MODEL = os.getenv("FISH_AUDIO_MODEL", "s2.1-pro").strip()
+ALLOW_GUEST = os.getenv("ALLOW_GUEST", "true").strip().lower() in {"1", "true", "yes"}
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else ""
+SUPABASE_ISSUER = f"{SUPABASE_URL}/auth/v1" if SUPABASE_URL else ""
+SUPABASE_JWKS = PyJWKClient(SUPABASE_JWKS_URL) if SUPABASE_JWKS_URL else None
 
 SYSTEM = """
 You are JARVIS, a personal AI assistant.
@@ -70,8 +77,32 @@ class SpeakRequest(BaseModel):
 
 
 def check_auth(authorization: Optional[str]):
-    if AUTH_TOKEN and authorization != f"Bearer {AUTH_TOKEN}":
-        raise HTTPException(status_code=401, detail="Invalid JARVIS authentication token")
+    if not authorization:
+        if ALLOW_GUEST:
+            return {"guest": True}
+        if AUTH_TOKEN:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        return {"guest": True}
+
+    if AUTH_TOKEN and authorization == f"Bearer {AUTH_TOKEN}":
+        return {"guest": False, "legacy": True}
+
+    if authorization.startswith("Bearer ") and SUPABASE_JWKS:
+        token = authorization[7:].strip()
+        try:
+            signing_key = SUPABASE_JWKS.get_signing_key_from_jwt(token)
+            claims = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=[signing_key.algorithm_name],
+                audience="authenticated",
+                issuer=SUPABASE_ISSUER,
+            )
+            return {"guest": False, "user_id": claims.get("sub")}
+        except Exception:
+            pass
+
+    raise HTTPException(status_code=401, detail="Invalid JARVIS authentication token")
 
 
 def get_session_history(req: ChatRequest) -> list[dict]:
