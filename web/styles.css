@@ -71,3 +71,18 @@ footer{max-width:1180px;margin:auto;padding:5px 20px 18px;display:flex;justify-c
 /* JARVIS solid-colour background mode */
 .scanlines,.ambient,.ambient-one,.ambient-two{display:none!important}
 .app,body,html,.topbar,.panel,.side-menu-panel,.memory-card,.settings-card,.command-console,.conversation-feed,.quick-grid button,.schedule-row,.env-grid div,.memory-item,.auth-provider,.settings-card input{background:#02070b!important;background-image:none!important}
+
+.menu-status-card{margin-top:12px;border:1px solid #123f50;border-radius:8px;padding:12px;background:#02070b}
+.menu-status-card.hidden{display:none}
+.menu-status-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.menu-status-close{width:26px;height:26px;border:1px solid #123847;border-radius:6px;background:#02070b;color:#6e8b96;font-size:17px;line-height:1}
+.menu-status-title{display:flex;align-items:center;justify-content:space-between;color:#20d8ff;font-size:9px;letter-spacing:1.4px;padding-bottom:8px;border-bottom:1px solid #123847}
+.menu-status-title b{font-size:7px;color:#3ff0c0;font-weight:400}
+.menu-status-card .status-list{gap:10px;padding:11px 0 7px}
+.menu-status-card .status-list div{font-size:8px}
+.menu-status-card .status-list strong{font-size:8px}
+.menu-status-card .panel-foot{font-size:7px}
+@media(max-width:600px){
+  .side-menu-panel{overflow-y:auto}
+  .menu-status-card{margin-top:9px}
+}
