@@ -207,15 +207,19 @@
     const coreCaption = document.getElementById("coreCaption");
 
     function sync() {
-        const online = statusText && statusText.textContent.trim() === "ONLINE";
+        const state = statusText ? statusText.textContent.trim() : "OFFLINE";
+        const online = state === "ONLINE";
+        const connecting = state === "CONNECTING";
         root.classList.toggle("online", online);
-        if (footerStatus) footerStatus.textContent = online ? "ONLINE" : "OFFLINE";
-        if (backendStatus) backendStatus.textContent = online ? "ONLINE" : "OFFLINE";
-        if (connectionValue) connectionValue.textContent = online ? "ONLINE" : "OFFLINE";
-        if (aiStatus) aiStatus.textContent = online ? "ONLINE" : "OFFLINE";
-        if (voiceStatus && online) voiceStatus.textContent = "READY";
-        if (statusLabel) statusLabel.textContent = online ? "OPERATIONAL" : "OFFLINE";
-        if (coreCaption) coreCaption.textContent = online ? "LISTENING..." : "STANDBY";
+
+        const displayState = online ? "ONLINE" : connecting ? "CONNECTING" : state;
+        if (footerStatus) footerStatus.textContent = displayState;
+        if (backendStatus) backendStatus.textContent = displayState;
+        if (connectionValue) connectionValue.textContent = displayState;
+        if (aiStatus) aiStatus.textContent = displayState;
+        if (voiceStatus) voiceStatus.textContent = online ? "READY" : connecting ? "CONNECTING" : "OFFLINE";
+        if (statusLabel) statusLabel.textContent = online ? "OPERATIONAL" : connecting ? "CONNECTING" : state;
+        if (coreCaption) coreCaption.textContent = online ? "LISTENING..." : connecting ? "CONNECTING..." : "STANDBY";
     }
     if (statusText) new MutationObserver(sync).observe(statusText, {childList:true,subtree:true,characterData:true});
     sync();
