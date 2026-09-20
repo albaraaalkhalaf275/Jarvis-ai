@@ -4,6 +4,7 @@ import math
 import operator
 import os
 import re
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -11,7 +12,7 @@ import httpx
 import jwt
 from jwt import PyJWKClient
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
@@ -43,6 +44,9 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else ""
 SUPABASE_ISSUER = f"{SUPABASE_URL}/auth/v1" if SUPABASE_URL else ""
 SUPABASE_JWKS = PyJWKClient(SUPABASE_JWKS_URL) if SUPABASE_JWKS_URL else None
+GUEST_RATE_LIMIT = int(os.getenv("GUEST_RATE_LIMIT", "20"))
+GUEST_RATE_WINDOW = 60
+GUEST_HITS: dict[str, list[float]] = {}
 
 SYSTEM = """
 You are JARVIS, a personal AI assistant.
@@ -76,9 +80,17 @@ class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=5000)
 
 
-def check_auth(authorization: Optional[str]):
+def check_auth(authorization: Optional[str], request: Optional[Request] = None):
     if not authorization:
         if ALLOW_GUEST:
+            if request:
+                ip = request.client.host if request.client else "unknown"
+                now = time.time()
+                hits = [t for t in GUEST_HITS.get(ip, []) if now - t < GUEST_RATE_WINDOW]
+                if len(hits) >= GUEST_RATE_LIMIT:
+                    raise HTTPException(status_code=429, detail="Guest rate limit reached. Please wait a minute or sign in.")
+                hits.append(now)
+                GUEST_HITS[ip] = hits
             return {"guest": True}
         if AUTH_TOKEN:
             raise HTTPException(status_code=401, detail="Authentication required")
@@ -260,15 +272,15 @@ def status(authorization: Optional[str] = Header(default=None)):
 
 
 @app.post("/api/speak")
-async def speak(req: SpeakRequest, authorization: Optional[str] = Header(default=None)):
-    check_auth(authorization)
+async def speak(req: SpeakRequest, request: Request, authorization: Optional[str] = Header(default=None)):
+    check_auth(authorization, request)
     audio = await fish_tts(req.text)
     return Response(content=audio, media_type="audio/mpeg")
 
     
 @app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, authorization: Optional[str] = Header(default=None)):
-    check_auth(authorization)
+def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
+    check_auth(authorization, request)
 
     if not API_KEY:
         raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
