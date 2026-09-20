@@ -405,8 +405,9 @@ async function sendMessage(message) {
 
     try {
         const headers = {"Content-Type":"application/json"};
+        // Normal chat uses the current Supabase session only.
+        // Do not send the legacy JARVIS_AUTH_TOKEN from browser storage to chat endpoints.
         if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
-        else if (authToken) headers.Authorization = "Bearer " + authToken;
         const response = await fetchWithTimeout(backendUrl + "/api/chat/stream", {
             method:"POST", headers,
             body:JSON.stringify({message, history:historyForRequest, session_id:sessionId})
@@ -607,8 +608,9 @@ async function speak(text) {
     if (!backendUrl) { speakWithBrowser(text); return; }
     if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; currentAudio = null; }
     const headers = {"Content-Type":"application/json"};
+    // Normal TTS uses the current Supabase session only.
+    // Do not send the legacy JARVIS_AUTH_TOKEN from browser storage.
     if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
-    else if (authToken) headers.Authorization = "Bearer " + authToken;
     try {
         const response = await fetchWithTimeout(backendUrl + "/api/speak", {
             method:"POST", headers, body:JSON.stringify({text})
