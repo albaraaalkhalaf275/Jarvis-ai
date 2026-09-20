@@ -43,6 +43,7 @@ TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
 JARVIS_OWNER_PHONE = os.getenv("JARVIS_OWNER_PHONE", "").strip()
 ALLOW_GUEST = os.getenv("ALLOW_GUEST", "true").strip().lower() in {"1", "true", "yes"}
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "").strip()
 SUPABASE_JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else ""
 SUPABASE_ISSUER = f"{SUPABASE_URL}/auth/v1" if SUPABASE_URL else ""
 SUPABASE_JWKS = PyJWKClient(SUPABASE_JWKS_URL) if SUPABASE_JWKS_URL else None
@@ -435,6 +436,14 @@ async def voice_ws(websocket: WebSocket):
             await websocket.close(code=1011, reason="JARVIS voice session failed")
         except Exception:
             pass
+
+@app.get("/api/config")
+def public_config():
+    return {
+        "supabase_url": SUPABASE_URL,
+        "supabase_publishable_key": SUPABASE_PUBLISHABLE_KEY,
+    }
+
 
 @app.get("/health")
 def health():
