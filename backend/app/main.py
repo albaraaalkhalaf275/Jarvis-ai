@@ -67,10 +67,14 @@ class SecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.method in {"POST", "PUT", "PATCH"}:
             content_length = request.headers.get("content-length")
-            if content_length and int(content_length) > MAX_BODY_BYTES:
-                return Response("Request too large", status_code=413)
+            if content_length:
+                try:
+                    if int(content_length) > MAX_BODY_BYTES:
+                        return Response("Request too large", status_code=413)
+                except ValueError:
+                    return Response("Invalid Content-Length", status_code=400)
 
-        if request.url.path.startswith("/api/") and request.url.path != "/api/status":
+        if request.url.path.startswith("/api/"):
             ip = request.client.host if request.client else "unknown"
             key = f"{ip}:{request.url.path}"
             now = time.time()
@@ -110,7 +114,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-API_KEY = """
+SYSTEM = """
 You are JARVIS, a personal AI assistant.
 
 Be intelligent, concise, practical, and honest.
