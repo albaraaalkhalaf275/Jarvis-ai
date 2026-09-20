@@ -517,6 +517,20 @@ document.querySelectorAll(".nav-item[data-command]").forEach(button => {
     });
 });
 
+
+document.getElementById("quickMemory")?.addEventListener("click", () => setMemory(true));
+document.getElementById("quickNewChat")?.addEventListener("click", startNewChat);
+document.getElementById("openMemoryFromRecent")?.addEventListener("click", () => setMemory(true));
+document.getElementById("accountMenuButton")?.addEventListener("click", () => { setMenu(false); authPanel?.classList.remove("hidden"); });
+document.getElementById("systemStatusNav")?.addEventListener("click", () => {
+    setMenu(false);
+    systemStatusMenu?.classList.toggle("hidden");
+});
+document.getElementById("quickSystem")?.addEventListener("click", () => {
+    setMenu(false);
+    systemStatusMenu?.classList.remove("hidden");
+});
+
 menuButton?.addEventListener("click", () => setMenu(true));
 closeMenu?.addEventListener("click", () => setMenu(false));
 sideMenuBackdrop?.addEventListener("click", () => setMenu(false));
@@ -607,6 +621,10 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => navigato
     const aiStatus = document.getElementById('aiStatus');
     const voiceStatus = document.getElementById('voiceStatus');
     const statusLabel = document.getElementById('statusLabel');
+    const sideStatus = document.getElementById("sideStatus");
+    const aiStatusSide = document.getElementById("aiStatusSide");
+    const backendStatusSide = document.getElementById("backendStatusSide");
+    const systemFootSide = document.getElementById("systemFootSide");
     const coreCaption = null;
     function sync() {
         const state = statusText ? statusText.textContent.trim() : 'OFFLINE';
@@ -620,6 +638,10 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => navigato
         if (aiStatus) aiStatus.textContent = displayState;
         if (voiceStatus) voiceStatus.textContent = online ? 'READY' : connecting ? 'CONNECTING' : 'OFFLINE';
         if (statusLabel) statusLabel.textContent = online ? 'OPERATIONAL' : connecting ? 'CONNECTING' : state;
+        if (sideStatus) sideStatus.textContent = displayState;
+        if (aiStatusSide) aiStatusSide.textContent = displayState;
+        if (backendStatusSide) backendStatusSide.textContent = displayState;
+        if (systemFootSide) systemFootSide.textContent = online ? "All systems operational." : "Connection retry active.";
         if (menuStatusBadge) menuStatusBadge.textContent = online ? 'ONLINE' : connecting ? 'CONNECTING' : state;
 
     }
