@@ -30,12 +30,12 @@ API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 AUTH_TOKEN = os.getenv("JARVIS_AUTH_TOKEN", "").strip()
 
-AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY", "").strip()
-AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "").strip()
-AZURE_TTS_VOICE = os.getenv(
-    "AZURE_TTS_VOICE",
-    "en-GB-Ryan:DragonHDLatestNeural",
+FISH_AUDIO_API_KEY = os.getenv("FISH_AUDIO_API_KEY", "").strip()
+FISH_AUDIO_VOICE_ID = os.getenv(
+    "FISH_AUDIO_VOICE_ID",
+    "612b878b113047d9a770c069c8b4fdfe",
 ).strip()
+FISH_AUDIO_MODEL = os.getenv("FISH_AUDIO_MODEL", "s2.1-pro").strip()
 
 SYSTEM = """
 You are JARVIS, a personal AI assistant.
@@ -150,16 +150,36 @@ def local_fast_path(message: str) -> Optional[str]:
     return None
 
 
-def build_ssml(text: str) -> str:
-    safe_text = html.escape(text, quote=False)
-    return f"""<speak version="1.0"
-xmlns="http://www.w3.org/2001/10/synthesis"
-xmlns:mstts="http://www.w3.org/2001/mstts"
-xml:lang="en-GB">
-<voice name="{html.escape(AZURE_TTS_VOICE, quote=True)}">
-<prosody rate="-5%" pitch="-2st">{safe_text}</prosody>
-</voice>
-</speak>"""
+async def fish_tts(text: str) -> bytes:
+    if not FISH_AUDIO_API_KEY:
+        raise HTTPException(status_code=503, detail="Fish Audio is not configured")
+
+    headers = {
+        "Authorization": f"Bearer {FISH_AUDIO_API_KEY}",
+        "Content-Type": "application/json",
+        "model": FISH_AUDIO_MODEL,
+    }
+    payload = {
+        "text": text,
+        "reference_id": FISH_AUDIO_VOICE_ID,
+        "format": "mp3",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            result = await client.post(
+                "https://api.fish.audio/v1/tts",
+                headers=headers,
+                json=payload,
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Fish Audio connection failed: {exc}")
+
+    if result.status_code != 200:
+        detail = result.text[:500] or "Fish Audio synthesis failed"
+        raise HTTPException(status_code=502, detail=detail)
+
+    return result.content
 
 
 @app.get("/health")
@@ -167,7 +187,7 @@ def health():
     return {
         "ok": True,
         "gemini_configured": bool(API_KEY),
-        "tts_configured": bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION),
+        "tts_configured": bool(FISH_AUDIO_API_KEY),
         "model": MODEL,
         "sessions": len(SESSIONS),
     }
@@ -181,13 +201,13 @@ def status(authorization: Optional[str] = Header(default=None)):
         "service": "JARVIS",
         "gemini_configured": bool(API_KEY),
         "tts_configured": bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION),
-        "tts_voice": AZURE_TTS_VOICE,
+        "tts_voice": FISH_AUDIO_VOICE_ID,
         "model": MODEL,
         "active_sessions": len(SESSIONS),
         "capabilities": [
             "chat",
             "conversation context",
-            "neural British text-to-speech",
+            "Fish Audio JARVIS text-to-speech",
             "voice through the web client",
             "time",
             "date",
@@ -199,88 +219,5 @@ def status(authorization: Optional[str] = Header(default=None)):
 @app.post("/api/speak")
 async def speak(req: SpeakRequest, authorization: Optional[str] = Header(default=None)):
     check_auth(authorization)
-
-    if not AZURE_SPEECH_KEY or not AZURE_SPEECH_REGION:
-        raise HTTPException(status_code=503, detail="Azure Speech is not configured")
-
-    endpoint = (
-        f"https://{AZURE_SPEECH_REGION}.tts.speech.microsoft.com/"
-        "cognitiveservices/v1"
-    )
-
-    headers = {
-        "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
-        "Content-Type": "application/ssml+xml",
-        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
-        "User-Agent": "JARVIS-AI",
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            result = await client.post(
-                endpoint,
-                headers=headers,
-                content=build_ssml(req.text),
-            )
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Speech service connection failed: {exc}")
-
-    if result.status_code != 200:
-        detail = result.text[:500] or "Azure Speech synthesis failed"
-        raise HTTPException(status_code=502, detail=detail)
-
-    return Response(content=result.content, media_type="audio/mpeg")
-
-
-@app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, authorization: Optional[str] = Header(default=None)):
-    check_auth(authorization)
-
-    if not API_KEY:
-        raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
-
-    message = req.message.strip()
-    fast_reply = local_fast_path(message)
-    if fast_reply is not None:
-        return ChatResponse(reply=fast_reply, model=MODEL, session_id=req.session_id)
-
-    client = genai.Client(api_key=API_KEY)
-    prior_history = get_session_history(req)
-    contents = []
-
-    for item in prior_history:
-        role = item.get("role", "user")
-        text = str(item.get("text", "")).strip()
-        if text:
-            contents.append({
-                "role": "model" if role == "assistant" else "user",
-                "parts": [{"text": text}],
-            })
-
-    contents.append({"role": "user", "parts": [{"text": message}]})
-
-    try:
-        result = client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config={
-                "system_instruction": SYSTEM,
-                "temperature": 0.7,
-            },
-        )
-
-        reply = (result.text or "").strip()
-        if not reply:
-            reply = "I received the request, but Gemini returned no text."
-
-        if req.session_id:
-            updated = prior_history + [
-                {"role": "user", "text": message},
-                {"role": "assistant", "text": reply},
-            ]
-            save_session(req.session_id, updated)
-
-        return ChatResponse(reply=reply, model=MODEL, session_id=req.session_id)
-
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Gemini request failed: {exc}")
+    audio = await fish_tts(req.text)
+    return Response(content=audio, media_type="audio/mpeg")
