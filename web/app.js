@@ -32,8 +32,6 @@ const menuStatusBadge = document.getElementById("menuStatusBadge");
 
 let backendUrl = "";
 let busy = false;
-let recognition = null;
-let currentAudio = null;
 let authClient = null;
 let authSession = null;
 let isOwner = false;
@@ -317,14 +315,13 @@ function setStatus(online, text) {
     const model = document.getElementById("modelValue");
     if (model) model.textContent = online ? (window.jarvisModel || "ONLINE") : "--";
     const voice = document.getElementById("voiceValue");
-    if (voice) voice.textContent = online ? "READY" : "OFFLINE";
+    if (voice) voice.textContent = "PAUSED";
 }
 
 function setBusy(value) {
     busy = value;
     if (sendButton) sendButton.disabled = value;
     if (messageInput) messageInput.disabled = value;
-    if (micButton) micButton.disabled = value;
     commandState.textContent = value ? "PROCESSING" : "READY";
 }
 
@@ -481,8 +478,7 @@ async function sendMessage(message) {
         renderActivity();
         setStatus(true, "ONLINE");
         setSubtitle("Awaiting your command.");
-        void speak(reply);
-    } catch (error) {
+        } catch (error) {
         const errorMessage = error.name === "AbortError" ? "JARVIS timed out waiting for the backend." : "Connection error: " + error.message;
         addMessage(errorMessage, "jarvis");
         setSubtitle("Request failed. Check the connection.");
@@ -576,54 +572,6 @@ saveSettings?.addEventListener("click", async () => {
     settingsPanel.classList.add("hidden");
     await initAuth();
     await checkBackend();
-});
-
-function speakWithBrowser(text) {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = .9; utterance.pitch = .85; utterance.volume = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const britishMale = voices.find(v => /^en-GB/i.test(v.lang) && /male|ryan|daniel|arthur|oliver|george/i.test(v.name));
-    if (britishMale) utterance.voice = britishMale;
-    window.speechSynthesis.speak(utterance);
-}
-
-async function speak(text) {
-    if (!backendUrl) { speakWithBrowser(text); return; }
-    if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; currentAudio = null; }
-    const headers = {"Content-Type":"application/json"};
-    // Normal TTS uses the current Supabase session only.
-    // Do not send the legacy JARVIS_AUTH_TOKEN from browser storage.
-    if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
-    try {
-        const response = await fetchWithTimeout(backendUrl + "/api/speak", {
-            method:"POST", headers, body:JSON.stringify({text})
-        }, 30000);
-        if (!response.ok) throw new Error("TTS HTTP " + response.status);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        currentAudio = new Audio(url);
-        currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; };
-        await currentAudio.play();
-    } catch { speakWithBrowser(text); }
-}
-
-if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.lang = "en-US"; recognition.interimResults = false; recognition.continuous = false;
-    recognition.onstart = () => { micButton.textContent = "🔴"; setSubtitle("Listening..."); };
-    recognition.onresult = event => {
-        const transcript = event.results?.[0]?.[0]?.transcript?.trim();
-        if (transcript) { messageInput.value = transcript; sendMessage(transcript); }
-    };
-    recognition.onerror = event => { micButton.textContent = "◉"; setSubtitle(event.error === "not-allowed" ? "Microphone permission was denied." : "Voice input failed."); };
-    recognition.onend = () => { micButton.textContent = "◉"; };
-}
-micButton.addEventListener("click", () => {
-    if (!recognition) { addMessage("Voice recognition is not supported by this browser.", "jarvis"); return; }
-    if (!busy) try { recognition.start(); } catch {}
 });
 
 function updateClock() {
