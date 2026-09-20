@@ -21,6 +21,8 @@ let backendUrl = (localStorage.getItem("jarvis_backend_url") || "").trim().repla
 let authToken = localStorage.getItem("jarvis_auth_token") || "";
 let busy = false;
 let recognition = null;
+let sessionId = localStorage.getItem("jarvis_session_id") || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+localStorage.setItem("jarvis_session_id", sessionId);
 
 backendUrlInput.value = backendUrl;
 authTokenInput.value = authToken;
@@ -147,7 +149,8 @@ async function sendMessage(message) {
                 headers,
                 body: JSON.stringify({
                     message,
-                    history: historyForRequest
+                    history: historyForRequest,
+                    session_id: sessionId
                 })
             },
             60000
