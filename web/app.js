@@ -67,6 +67,8 @@ function setAccountLabel() {
     }
 }
 async function initAuth() {
+    savedSupabaseUrl = readStorage("jarvis_supabase_url");
+    savedSupabaseKey = readStorage("jarvis_supabase_key");
     if (!window.supabase || !savedSupabaseUrl || !savedSupabaseKey) {
         setAuthStatus("Guest mode is available. Add Supabase settings to enable Google and Apple.");
         setAccountLabel();
@@ -116,8 +118,8 @@ const googleButton = document.getElementById("googleButton");
 const appleButton = document.getElementById("appleButton");
 const authStatus = document.getElementById("authStatus");
 const signOutButton = document.getElementById("signOutButton");
-const savedSupabaseUrl = readStorage("jarvis_supabase_url");
-const savedSupabaseKey = readStorage("jarvis_supabase_key");
+let savedSupabaseUrl = readStorage("jarvis_supabase_url");
+let savedSupabaseKey = readStorage("jarvis_supabase_key");
 if (supabaseUrlInput) supabaseUrlInput.value = savedSupabaseUrl;
 if (supabaseKeyInput) supabaseKeyInput.value = savedSupabaseKey;
 
@@ -421,6 +423,7 @@ saveSettings?.addEventListener("click", async () => {
     if (supabaseUrlInput) supabaseUrlInput.value = enteredSupabaseUrl || savedSupabaseUrl;
     if (supabaseKeyInput) supabaseKeyInput.value = enteredSupabaseKey || savedSupabaseKey;
     settingsPanel.classList.add("hidden");
+    await initAuth();
     await checkBackend();
 });
 
