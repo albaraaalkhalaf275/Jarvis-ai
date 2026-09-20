@@ -41,6 +41,8 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
 JARVIS_OWNER_PHONE = os.getenv("JARVIS_OWNER_PHONE", "").strip()
+OWNER_EMAIL = os.getenv("JARVIS_OWNER_EMAIL", "").strip().lower()
+OWNER_USER_ID = os.getenv("JARVIS_OWNER_USER_ID", "").strip()
 ALLOW_GUEST = os.getenv("ALLOW_GUEST", "true").strip().lower() in {"1", "true", "yes"}
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "").strip()
@@ -176,7 +178,7 @@ class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=5000)
 
 
-def check_auth(authorization: Optional[str], request: Optional[Request] = None):
+def authenticate_request(authorization: Optional[str], request: Optional[Request] = None):
     if not authorization:
         if ALLOW_GUEST:
             if request:
@@ -187,13 +189,11 @@ def check_auth(authorization: Optional[str], request: Optional[Request] = None):
                     raise HTTPException(status_code=429, detail="Guest rate limit reached. Please wait a minute or sign in.")
                 hits.append(now)
                 GUEST_HITS[ip] = hits
-            return {"guest": True}
-        if AUTH_TOKEN:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        return {"guest": True}
+            return {"guest": True, "owner": False}
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     if AUTH_TOKEN and authorization == f"Bearer {AUTH_TOKEN}":
-        return {"guest": False, "legacy": True}
+        return {"guest": False, "legacy": True, "owner": True}
 
     if authorization.startswith("Bearer ") and SUPABASE_JWKS:
         token = authorization[7:].strip()
@@ -206,11 +206,40 @@ def check_auth(authorization: Optional[str], request: Optional[Request] = None):
                 audience="authenticated",
                 issuer=SUPABASE_ISSUER,
             )
-            return {"guest": False, "user_id": claims.get("sub")}
+            user_id = str(claims.get("sub") or "")
+            email = str(claims.get("email") or claims.get("user_metadata", {}).get("email") or "").lower()
+            owner = bool(
+                (OWNER_USER_ID and user_id == OWNER_USER_ID)
+                or (OWNER_EMAIL and email == OWNER_EMAIL)
+            )
+            return {"guest": False, "user_id": user_id, "email": email, "owner": owner}
         except Exception:
             pass
 
     raise HTTPException(status_code=401, detail="Invalid JARVIS authentication token")
+
+
+def check_auth(authorization: Optional[str], request: Optional[Request] = None):
+    return authenticate_request(authorization, request)
+
+
+def require_owner(authorization: Optional[str], request: Optional[Request] = None):
+    user = authenticate_request(authorization, request)
+    if not user.get("owner"):
+        raise HTTPException(status_code=403, detail="Owner access required")
+    return user
+
+
+def get_authenticated_user(authorization: Optional[str], request: Optional[Request] = None):
+    return authenticate_request(authorization, request)
+
+
+def is_authenticated_owner(authorization: Optional[str], request: Optional[Request] = None):
+    return authenticate_request(authorization, request).get("owner", False)
+
+
+def is_authenticated(authorization: Optional[str], request: Optional[Request] = None):
+    return authenticate_request(authorization, request)
 
 
 def get_session_history(req: ChatRequest) -> list[dict]:
@@ -372,7 +401,7 @@ async def voice_twiml(request: Request):
 
 @app.post("/api/voice/call")
 async def voice_call(request: Request, authorization: Optional[str] = Header(default=None)):
-    check_auth(authorization, request)
+    require_owner(authorization, request)
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER or not JARVIS_OWNER_PHONE:
         raise HTTPException(status_code=503, detail="Twilio voice is not configured")
     client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
