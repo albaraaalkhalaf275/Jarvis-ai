@@ -4,73 +4,187 @@ const messageInput = document.getElementById("messageInput");
 const micButton = document.getElementById("micButton");
 const sendButton = document.getElementById("sendButton");
 
-const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
 const subtitle = document.getElementById("subtitle");
+const commandState = document.getElementById("commandState");
 
 const settingsButton = document.getElementById("settingsButton");
 const settingsPanel = document.getElementById("settingsPanel");
 const closeSettings = document.getElementById("closeSettings");
 const saveSettings = document.getElementById("saveSettings");
-
 const backendUrlInput = document.getElementById("backendUrl");
 const authTokenInput = document.getElementById("authToken");
 
-function readStorage(key, fallback = "") {
-    try {
-        return localStorage.getItem(key) ?? fallback;
-    } catch {
-        return fallback;
-    }
-}
+const sideMenu = document.getElementById("sideMenu");
+const menuButton = document.getElementById("menuButton");
+const closeMenu = document.getElementById("closeMenu");
+const sideMenuBackdrop = document.getElementById("sideMenuBackdrop");
+const memoryPanel = document.getElementById("memoryPanel");
+const memoryBackdrop = document.getElementById("memoryBackdrop");
+const closeMemory = document.getElementById("closeMemory");
+const memoryList = document.getElementById("memoryList");
+const memoryBadge = document.getElementById("memoryBadge");
+const memoryCount = document.getElementById("memoryCount");
+const newChatButton = document.getElementById("newChatButton");
+const clearMemory = document.getElementById("clearMemory");
 
-function writeStorage(key, value) {
-    try {
-        localStorage.setItem(key, value);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-let history = JSON.parse(readStorage("jarvis_history", "[]") || "[]");
-let backendUrl = readStorage("jarvis_backend_url").trim().replace(/\/$/, "");
-let authToken = readStorage("jarvis_auth_token");
+let backendUrl = "";
+let authToken = "";
 let busy = false;
 let recognition = null;
 let currentAudio = null;
-let sessionId = readStorage("jarvis_session_id");
 
-if (!sessionId) {
-    sessionId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-    writeStorage("jarvis_session_id", sessionId);
+function readStorage(key, fallback = "") {
+    try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+function writeStorage(key, value) {
+    try { localStorage.setItem(key, value); return true; } catch { return false; }
+}
+function safeJSON(key, fallback) {
+    try { return JSON.parse(readStorage(key, JSON.stringify(fallback))); } catch { return fallback; }
+}
+function newId() {
+    return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
 }
 
+backendUrl = readStorage("jarvis_backend_url").trim().replace(/\/$/, "");
+authToken = readStorage("jarvis_auth_token");
 backendUrlInput.value = backendUrl;
 authTokenInput.value = authToken;
 
+let archives = safeJSON("jarvis_conversations", []);
+let currentChat = safeJSON("jarvis_current_chat", null);
+
+// Every fresh website load starts a new chat. The previous chat is archived first.
+if (currentChat && Array.isArray(currentChat.messages) && currentChat.messages.length) {
+    archiveCurrentChat();
+}
+let sessionId = newId();
+let history = [];
+currentChat = { id: sessionId, title: "New conversation", createdAt: Date.now(), messages: [] };
+writeStorage("jarvis_session_id", sessionId);
+saveCurrentChat();
+
+function archiveCurrentChat() {
+    if (!currentChat || !currentChat.messages?.length) return;
+    const copy = {
+        ...currentChat,
+        messages: currentChat.messages.slice(),
+        archivedAt: Date.now()
+    };
+    archives = [copy, ...archives.filter(item => item.id !== copy.id)].slice(0, 50);
+    writeStorage("jarvis_conversations", JSON.stringify(archives));
+}
+
+function saveCurrentChat() {
+    currentChat.messages = history.slice(-100);
+    writeStorage("jarvis_current_chat", JSON.stringify(currentChat));
+    renderMemory();
+}
+
 function addMessage(text, type) {
     const element = document.createElement("div");
-    element.className = `message ${type}`;
+    element.className = "message " + type;
     element.textContent = text;
     messages.appendChild(element);
     messages.scrollTop = messages.scrollHeight;
 }
 
-function saveHistory() {
-    writeStorage("jarvis_history", JSON.stringify(history.slice(-50)));
+function renderHistory() {
+    messages.innerHTML = "";
+    history.forEach(item => addMessage(item.text, item.role === "user" ? "user" : "jarvis"));
+    renderActivity();
+}
+
+function renderActivity() {
+    const list = document.getElementById("activityList");
+    const count = document.getElementById("activityCount");
+    if (!list) return;
+    const events = history.slice(-5).reverse();
+    if (count) count.textContent = history.length ? Math.ceil(history.length / 2) + " EVENTS" : "0 EVENTS";
+    if (!events.length) {
+        list.innerHTML = '<div class="empty-state">No activity in this session.</div>';
+        return;
+    }
+    list.innerHTML = events.map(item => {
+        const time = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+        const text = String(item.text || "").replace(/[<>]/g, "").slice(0, 90);
+        return '<div class="activity-row"><time>' + time + '</time><span>' + (item.role === "user" ? "Command: " : "JARVIS: ") + text + '</span></div>';
+    }).join("");
+}
+
+function renderMemory() {
+    const count = archives.length;
+    if (memoryBadge) memoryBadge.textContent = count;
+    if (memoryCount) memoryCount.textContent = String(count);
+    if (!memoryList) return;
+    if (!count) {
+        memoryList.innerHTML = '<div class="empty-state">No saved conversations yet.</div>';
+        return;
+    }
+    memoryList.innerHTML = archives.map(chat => {
+        const last = chat.messages?.[chat.messages.length - 1]?.text || "Empty conversation";
+        const date = new Date(chat.archivedAt || chat.createdAt).toLocaleString([], {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"});
+        const title = escapeHTML(chat.title || "Conversation");
+        const preview = escapeHTML(last.slice(0, 90));
+        return '<button class="memory-item" data-chat-id="' + chat.id + '"><strong>' + title + '</strong><em>OPEN ›</em><small>' + date + ' • ' + preview + '</small></button>';
+    }).join("");
+}
+
+function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+
+function setMenu(open) {
+    if (!sideMenu) return;
+    sideMenu.classList.toggle("open", open);
+    sideMenu.setAttribute("aria-hidden", String(!open));
+    menuButton?.setAttribute("aria-expanded", String(open));
+    document.body.classList.toggle("menu-open", open);
+}
+function setMemory(open) {
+    memoryPanel?.setAttribute("aria-hidden", String(!open));
+    if (open) renderMemory();
+}
+function startNewChat() {
+    archiveCurrentChat();
+    sessionId = newId();
+    history = [];
+    currentChat = {id: sessionId, title: "New conversation", createdAt: Date.now(), messages: []};
+    writeStorage("jarvis_session_id", sessionId);
+    saveCurrentChat();
+    renderHistory();
+    setMemory(false);
+    setMenu(false);
+    subtitle.textContent = "New conversation ready.";
+    commandState.textContent = "NEW CHAT";
+    setTimeout(() => commandState.textContent = "READY", 900);
+    messageInput.focus();
+}
+
+function openArchivedChat(id) {
+    const chat = archives.find(item => item.id === id);
+    if (!chat) return;
+    sessionId = chat.id;
+    history = Array.isArray(chat.messages) ? chat.messages.slice() : [];
+    currentChat = {...chat, messages: history.slice(), restoredAt: Date.now()};
+    writeStorage("jarvis_session_id", sessionId);
+    saveCurrentChat();
+    renderHistory();
+    setMemory(false);
+    setMenu(false);
+    subtitle.textContent = "Memory restored. Continue this conversation.";
+    commandState.textContent = "MEMORY RESTORED";
+    setTimeout(() => commandState.textContent = "READY", 1100);
+    messageInput.focus();
 }
 
 function setStatus(online, text) {
     statusText.textContent = text;
-
-    if (online) {
-        statusDot.style.background = "#36a9ff";
-        statusDot.style.boxShadow = "0 0 10px rgba(54,169,255,.8)";
-    } else {
-        statusDot.style.background = "#596273";
-        statusDot.style.boxShadow = "0 0 8px rgba(89,98,115,.5)";
-    }
+    const model = document.getElementById("modelValue");
+    if (model) model.textContent = online ? (window.jarvisModel || "ONLINE") : "--";
+    const voice = document.getElementById("voiceValue");
+    if (voice) voice.textContent = online ? "READY" : "OFFLINE";
 }
 
 function setBusy(value) {
@@ -78,20 +192,14 @@ function setBusy(value) {
     if (sendButton) sendButton.disabled = value;
     if (messageInput) messageInput.disabled = value;
     if (micButton) micButton.disabled = value;
+    commandState.textContent = value ? "PROCESSING" : "READY";
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-        return await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-    } finally {
-        clearTimeout(timer);
-    }
+    try { return await fetch(url, {...options, signal: controller.signal}); }
+    finally { clearTimeout(timer); }
 }
 
 async function checkBackend() {
@@ -100,112 +208,67 @@ async function checkBackend() {
         subtitle.textContent = "Open Settings to connect JARVIS.";
         return false;
     }
-
     setStatus(false, "CONNECTING");
-
     try {
-        const response = await fetchWithTimeout(`${backendUrl}/health`, {}, 10000);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
+        const response = await fetchWithTimeout(backendUrl + "/health", {}, 10000);
+        if (!response.ok) throw new Error("HTTP " + response.status);
         const data = await response.json();
-
-        if (!data.gemini_configured) {
-            setStatus(false, "GEMINI ERROR");
-            subtitle.textContent = "Gemini is not configured on the backend.";
-            return false;
-        }
-
+        window.jarvisModel = data.model || "ONLINE";
+        if (!data.gemini_configured) throw new Error("Gemini is not configured");
         setStatus(true, "ONLINE");
-        subtitle.textContent = data.tts_configured
-            ? "JARVIS systems operational."
-            : "JARVIS online. Neural voice not configured.";
+        subtitle.textContent = data.tts_configured ? "JARVIS systems operational." : "JARVIS online. Neural voice not configured.";
+        document.getElementById("voiceStatus").textContent = data.tts_configured ? "ONLINE" : "BROWSER";
+        document.getElementById("systemFoot").textContent = "ALL SYSTEMS OPERATIONAL";
         return true;
     } catch (error) {
         setStatus(false, "OFFLINE");
-        subtitle.textContent =
-            error.name === "AbortError"
-                ? "Backend connection timed out."
-                : "Backend connection unavailable.";
+        subtitle.textContent = error.name === "AbortError" ? "Backend connection timed out." : "Backend connection unavailable.";
+        document.getElementById("systemFoot").textContent = "CONNECTION REQUIRED";
         return false;
     }
 }
 
 async function sendMessage(message) {
     message = String(message || "").trim();
-
     if (!message || busy) return;
-
     if (!backendUrl) {
-        addMessage(
-            "Backend is not configured. Open Settings and enter your JARVIS backend URL.",
-            "jarvis"
-        );
+        addMessage("Backend is not configured. Open Settings and enter your JARVIS backend URL.", "jarvis");
         return;
     }
 
+    const historyForRequest = history.filter(item => item.role === "user" || item.role === "assistant").slice(-20);
     addMessage(message, "user");
-
-    const historyForRequest = history
-        .filter(item => item && (item.role === "user" || item.role === "assistant"))
-        .slice(-20);
-
-    history.push({ role: "user", text: message });
-    saveHistory();
+    history.push({role:"user", text:message});
+    if (currentChat.title === "New conversation") currentChat.title = message.slice(0, 42);
+    saveCurrentChat();
+    renderActivity();
 
     messageInput.value = "";
     subtitle.textContent = "Processing request...";
     setBusy(true);
 
     try {
-        const headers = { "Content-Type": "application/json" };
-
-        if (authToken) {
-            headers.Authorization = `Bearer ${authToken}`;
-        }
-
-        const response = await fetchWithTimeout(
-            `${backendUrl}/api/chat`,
-            {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
-                    message,
-                    history: historyForRequest,
-                    session_id: sessionId
-                })
-            },
-            60000
-        );
+        const headers = {"Content-Type":"application/json"};
+        if (authToken) headers.Authorization = "Bearer " + authToken;
+        const response = await fetchWithTimeout(backendUrl + "/api/chat", {
+            method:"POST", headers,
+            body:JSON.stringify({message, history:historyForRequest, session_id:sessionId})
+        }, 60000);
 
         let data;
-        try {
-            data = await response.json();
-        } catch {
-            throw new Error(`Backend returned HTTP ${response.status}`);
-        }
-
-        if (!response.ok) {
-            throw new Error(data.detail || `Request failed (HTTP ${response.status})`);
-        }
+        try { data = await response.json(); } catch { throw new Error("Backend returned HTTP " + response.status); }
+        if (!response.ok) throw new Error(data.detail || "Request failed (HTTP " + response.status + ")");
 
         const reply = String(data.reply || "No response received.").trim();
-
         addMessage(reply, "jarvis");
-        history.push({ role: "assistant", text: reply });
-        saveHistory();
-
+        history.push({role:"assistant", text:reply});
+        saveCurrentChat();
+        renderActivity();
         setStatus(true, "ONLINE");
         subtitle.textContent = "Awaiting your command.";
         await speak(reply);
     } catch (error) {
-        const errorMessage =
-            error.name === "AbortError"
-                ? "JARVIS timed out waiting for the backend."
-                : `Connection error: ${error.message}`;
-
+        const errorMessage = error.name === "AbortError" ? "JARVIS timed out waiting for the backend." : "Connection error: " + error.message;
         addMessage(errorMessage, "jarvis");
         subtitle.textContent = "Request failed. Check the connection.";
         checkBackend();
@@ -215,195 +278,110 @@ async function sendMessage(message) {
     }
 }
 
-chatForm.addEventListener("submit", event => {
-    event.preventDefault();
-    sendMessage(messageInput.value);
+chatForm.addEventListener("submit", event => { event.preventDefault(); sendMessage(messageInput.value); });
+document.querySelectorAll("[data-command]").forEach(button => {
+    button.addEventListener("click", () => sendMessage(button.dataset.command));
 });
 
-document.querySelectorAll(".quick-actions button").forEach(button => {
-    button.addEventListener("click", () => {
-        sendMessage(button.dataset.command || button.textContent);
-    });
+menuButton?.addEventListener("click", () => setMenu(true));
+closeMenu?.addEventListener("click", () => setMenu(false));
+sideMenuBackdrop?.addEventListener("click", () => setMenu(false));
+
+document.getElementById("memoryNav")?.addEventListener("click", () => { setMenu(false); setMemory(true); });
+closeMemory?.addEventListener("click", () => setMemory(false));
+memoryBackdrop?.addEventListener("click", () => setMemory(false));
+memoryList?.addEventListener("click", event => {
+    const item = event.target.closest(".memory-item");
+    if (item) openArchivedChat(item.dataset.chatId);
+});
+newChatButton?.addEventListener("click", startNewChat);
+clearMemory?.addEventListener("click", () => {
+    if (!confirm("Clear all saved conversations?")) return;
+    archives = [];
+    writeStorage("jarvis_conversations", "[]");
+    renderMemory();
 });
 
-settingsButton.addEventListener("click", () => {
+settingsButton?.addEventListener("click", () => {
+    setMenu(false);
     settingsPanel.classList.remove("hidden");
     backendUrlInput.value = backendUrl;
     authTokenInput.value = authToken;
 });
-
-closeSettings.addEventListener("click", () => {
-    settingsPanel.classList.add("hidden");
-});
-
-saveSettings.addEventListener("click", async () => {
+closeSettings?.addEventListener("click", () => settingsPanel.classList.add("hidden"));
+saveSettings?.addEventListener("click", async () => {
     const enteredBackendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
     const enteredAuthToken = authTokenInput.value.trim();
-
-    if (enteredBackendUrl) {
-        backendUrl = enteredBackendUrl;
-        writeStorage("jarvis_backend_url", backendUrl);
-    }
-
-    if (enteredAuthToken) {
-        authToken = enteredAuthToken;
-        writeStorage("jarvis_auth_token", authToken);
-    }
-
+    if (enteredBackendUrl) { backendUrl = enteredBackendUrl; writeStorage("jarvis_backend_url", backendUrl); }
+    if (enteredAuthToken) { authToken = enteredAuthToken; writeStorage("jarvis_auth_token", authToken); }
     backendUrlInput.value = backendUrl;
     authTokenInput.value = authToken;
-
     settingsPanel.classList.add("hidden");
     await checkBackend();
 });
 
 function speakWithBrowser(text) {
     if (!("speechSynthesis" in window)) return;
-
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 0.85;
-    utterance.volume = 1;
-
+    utterance.rate = .9; utterance.pitch = .85; utterance.volume = 1;
     const voices = window.speechSynthesis.getVoices();
-    const britishMale = voices.find(voice =>
-        /^en-GB/i.test(voice.lang) &&
-        /male|ryan|daniel|arthur|oliver|george/i.test(voice.name)
-    );
-
-    if (britishMale) {
-        utterance.voice = britishMale;
-    }
-
+    const britishMale = voices.find(v => /^en-GB/i.test(v.lang) && /male|ryan|daniel|arthur|oliver|george/i.test(v.name));
+    if (britishMale) utterance.voice = britishMale;
     window.speechSynthesis.speak(utterance);
 }
 
 async function speak(text) {
-    if (!backendUrl) {
-        speakWithBrowser(text);
-        return;
-    }
-
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-        currentAudio = null;
-    }
-
-    const headers = {
-        "Content-Type": "application/json"
-    };
-
-    if (authToken) {
-        headers.Authorization = `Bearer ${authToken}`;
-    }
-
+    if (!backendUrl) { speakWithBrowser(text); return; }
+    if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; currentAudio = null; }
+    const headers = {"Content-Type":"application/json"};
+    if (authToken) headers.Authorization = "Bearer " + authToken;
     try {
-        const response = await fetchWithTimeout(
-            `${backendUrl}/api/speak`,
-            {
-                method: "POST",
-                headers,
-                body: JSON.stringify({ text })
-            },
-            30000
-        );
-
-        if (!response.ok) {
-            throw new Error(`TTS HTTP ${response.status}`);
-        }
-
+        const response = await fetchWithTimeout(backendUrl + "/api/speak", {
+            method:"POST", headers, body:JSON.stringify({text})
+        }, 30000);
+        if (!response.ok) throw new Error("TTS HTTP " + response.status);
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         currentAudio = new Audio(url);
-
-        currentAudio.onended = () => {
-            URL.revokeObjectURL(url);
-            currentAudio = null;
-        };
-
+        currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; };
         await currentAudio.play();
-    } catch {
-        // Fall back to the browser voice if Azure Speech is unavailable.
-        speakWithBrowser(text);
-    }
+    } catch { speakWithBrowser(text); }
 }
 
 if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
-    const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.onstart = () => {
-        if (micButton) micButton.textContent = "🔴";
-        subtitle.textContent = "Listening...";
-    };
-
+    recognition.lang = "en-US"; recognition.interimResults = false; recognition.continuous = false;
+    recognition.onstart = () => { micButton.textContent = "🔴"; subtitle.textContent = "Listening..."; };
     recognition.onresult = event => {
         const transcript = event.results?.[0]?.[0]?.transcript?.trim();
-
-        if (transcript) {
-            messageInput.value = transcript;
-            sendMessage(transcript);
-        }
+        if (transcript) { messageInput.value = transcript; sendMessage(transcript); }
     };
-
-    recognition.onerror = event => {
-        if (micButton) micButton.textContent = "🎙";
-        subtitle.textContent =
-            event.error === "not-allowed"
-                ? "Microphone permission was denied."
-                : "Voice input failed.";
-    };
-
-    recognition.onend = () => {
-        if (micButton) micButton.textContent = "🎙";
-    };
+    recognition.onerror = event => { micButton.textContent = "◉"; subtitle.textContent = event.error === "not-allowed" ? "Microphone permission was denied." : "Voice input failed."; };
+    recognition.onend = () => { micButton.textContent = "◉"; };
 }
-
 micButton.addEventListener("click", () => {
-    if (!recognition) {
-        addMessage(
-            "Voice recognition is not supported by this browser.",
-            "jarvis"
-        );
-        return;
-    }
-
-    if (busy) return;
-
-    try {
-        recognition.start();
-    } catch {
-        // Recognition was already running.
-    }
+    if (!recognition) { addMessage("Voice recognition is not supported by this browser.", "jarvis"); return; }
+    if (!busy) try { recognition.start(); } catch {}
 });
 
-function loadHistory() {
-    messages.innerHTML = "";
-
-    history
-        .filter(item => item && (item.role === "user" || item.role === "assistant"))
-        .slice(-50)
-        .forEach(item => {
-            addMessage(
-                item.text,
-                item.role === "user" ? "user" : "jarvis"
-            );
-        });
+function updateClock() {
+    const now = new Date();
+    const hhmm = now.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", hour12:false});
+    const sec = now.toLocaleTimeString([], {second:"2-digit"});
+    document.getElementById("clock").textContent = hhmm;
+    document.getElementById("seconds").textContent = ":" + sec;
+    document.getElementById("topTime").textContent = hhmm;
+    document.getElementById("date").textContent = now.toLocaleDateString([], {weekday:"long", day:"2-digit", month:"long", year:"numeric"}).toUpperCase();
+    document.getElementById("lastUpdate").textContent = now.toLocaleTimeString([], {hour12:false});
 }
+setInterval(updateClock, 1000);
+updateClock();
 
-loadHistory();
+renderHistory();
+renderMemory();
 checkBackend();
+messageInput.focus();
 
-if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
-    });
-}
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
