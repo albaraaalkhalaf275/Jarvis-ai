@@ -172,6 +172,18 @@ def local_fast_path(message: str) -> Optional[str]:
     if re.fullmatch(r"(what('s| is) )?(today('s)? )?date\??", text):
         return datetime.now().astimezone().strftime("Today is %A, %B %d, %Y.")
 
+    if re.fullmatch(r"(hi|hello|hey)( jarvis)?[!. ]*", text):
+        return "Hello. JARVIS is online and ready."
+
+    if text in {"thanks", "thank you", "thx"}:
+        return "You are welcome."
+
+    if text in {"who are you", "what are you", "what is jarvis"}:
+        return "I am JARVIS, your personal AI assistant."
+
+    if text in {"what can you do", "what can you do?", "capabilities"}:
+        return "I can chat, keep conversation context, use connected tools, handle voice, and run supported assistant workflows."
+
     if re.fullmatch(r"(calculate|compute)\s+.+", text):
         expression = re.sub(r"^(calculate|compute)\s+", "", message.strip(), flags=re.I)
         result = safe_calculate(expression)
@@ -252,3 +264,71 @@ async def speak(req: SpeakRequest, authorization: Optional[str] = Header(default
     check_auth(authorization)
     audio = await fish_tts(req.text)
     return Response(content=audio, media_type="audio/mpeg")
+
+    
+@app.post("/api/chat", response_model=ChatResponse)
+def chat(req: ChatRequest, authorization: Optional[str] = Header(default=None)):
+    check_auth(authorization)
+
+    if not API_KEY:
+        raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
+
+    message = req.message.strip()
+    fast_reply = local_fast_path(message)
+    if fast_reply is not None:
+        return ChatResponse(reply=fast_reply, model=MODEL, session_id=req.session_id)
+
+    client = genai.Client(api_key=API_KEY)
+    prior_history = get_session_history(req)
+    contents = []
+
+    for item in prior_history:
+        role = item.get("role", "user")
+        text = str(item.get("text", "")).strip()
+        if text:
+            contents.append({
+                "role": "model" if role == "assistant" else "user",
+                "parts": [{"text": text}],
+            })
+
+    contents.append({"role": "user", "parts": [{"text": message}]})
+
+    thinking_level = (
+        "minimal"
+        if len(message) < 120 and not re.search(
+            r"\b(why|how|compare|analy[sz]e|debug|design|plan|calculate)\b",
+            message,
+            flags=re.I,
+        )
+        else "low"
+    )
+
+    try:
+        result = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config={
+                "system_instruction": SYSTEM,
+                "temperature": 0.2,
+                "max_output_tokens": 512,
+                "thinking_config": {
+                    "thinking_level": thinking_level,
+                },
+            },
+        )
+
+        reply = (result.text or "").strip()
+        if not reply:
+            reply = "I received the request, but Gemini returned no text."
+
+        if req.session_id:
+            updated = prior_history + [
+                {"role": "user", "text": message},
+                {"role": "assistant", "text": reply},
+            ]
+            save_session(req.session_id, updated)
+
+        return ChatResponse(reply=reply, model=MODEL, session_id=req.session_id)
+
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini request failed: {exc}")
