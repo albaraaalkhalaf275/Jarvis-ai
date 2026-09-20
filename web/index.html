@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#05070c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>JARVIS</title>
+
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div class="app">
+
+        <header>
+            <div>
+                <div class="logo">JARVIS</div>
+                <div class="status">
+                    <span id="statusDot"></span>
+                    <span id="statusText">OFFLINE</span>
+                </div>
+            </div>
+
+            <button id="settingsButton">⚙</button>
+        </header>
+
+        <main>
+
+            <section class="reactor-section">
+
+                <div class="reactor">
+                    <div class="reactor-core">J</div>
+                </div>
+
+                <h1>Good day.</h1>
+                <p id="subtitle">Awaiting your command.</p>
+
+            </section>
+
+            <section id="messages" class="messages"></section>
+
+            <div class="quick-actions">
+                <button data-command="What can you do?">
+                    Capabilities
+                </button>
+
+                <button data-command="What is the current time?">
+                    Time
+                </button>
+
+                <button data-command="Give me a system status report.">
+                    System Status
+                </button>
+            </div>
+
+            <form id="chatForm" class="input-area">
+
+                <button
+                    type="button"
+                    id="micButton"
+                    title="Voice input">
+                    🎙
+                </button>
+
+                <input
+                    id="messageInput"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="Speak to JARVIS..."
+                >
+
+                <button type="submit" id="sendButton">
+                    ➤
+                </button>
+
+            </form>
+
+        </main>
+
+        <div id="settingsPanel" class="settings hidden">
+
+            <div class="settings-card">
+
+                <h2>JARVIS Configuration</h2>
+
+                <label>
+                    Backend URL
+                </label>
+
+                <input
+                    id="backendUrl"
+                    type="url"
+                    placeholder="https://your-backend-url.com"
+                >
+
+                <label>
+                    Authentication Token
+                </label>
+
+                <input
+                    id="authToken"
+                    type="password"
+                    placeholder="Optional token"
+                >
+
+                <p>
+                    Your Gemini API key must remain on the backend.
+                </p>
+
+                <div class="settings-actions">
+                    <button id="saveSettings">
+                        Save
+                    </button>
+
+                    <button id="closeSettings">
+                        Close
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
+
+</body>
+</html>
