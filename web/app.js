@@ -39,6 +39,7 @@ let recognition = null;
 let currentAudio = null;
 let authClient = null;
 let authSession = null;
+let isOwner = false;
 let backendFailures = 0;
 let lastBackendCheck = 0;
 
@@ -90,6 +91,12 @@ function handleAuthRedirectError() {
     }
 }
 
+function applyOwnerUI(owner) {
+    isOwner = Boolean(owner);
+    if (settingsButton) settingsButton.hidden = !isOwner;
+    document.querySelectorAll(".owner-only").forEach(el => { el.hidden = !isOwner; });
+}
+
 function setAccountLabel() {
     if (!accountButton) return;
     if (authSession?.user) {
@@ -100,6 +107,7 @@ function setAccountLabel() {
         accountButton.textContent = "◉ ACCOUNT";
         if (signOutButton) signOutButton.classList.add("hidden");
     }
+    applyOwnerUI(false);
 }
 async function initAuth() {
     savedSupabaseUrl = readStorage("jarvis_supabase_url");
@@ -115,9 +123,11 @@ async function initAuth() {
         const result = await authClient.auth.getSession();
         authSession = result.data?.session || null;
         setAccountLabel();
-        authClient.auth.onAuthStateChange((_event, session) => {
+        await syncOwnerAccess();
+        authClient.auth.onAuthStateChange(async (_event, session) => {
             authSession = session;
             setAccountLabel();
+            await syncOwnerAccess();
             if (session) {
                 setAuthStatus("Signed in. Your JARVIS session is authenticated.");
                 checkBackend();
@@ -127,9 +137,25 @@ async function initAuth() {
         setAuthStatus("Account service is not configured correctly. Guest mode remains available.");
     }
 }
+async function syncOwnerAccess() {
+    applyOwnerUI(false);
+    try {
+        const headers = {};
+        if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
+        else if (authToken) headers.Authorization = "Bearer " + authToken;
+        const response = await fetchWithTimeout(backendUrl + "/api/me", {headers, cache:"no-store"}, 8000);
+        if (!response.ok) return false;
+        const data = await response.json();
+        applyOwnerUI(Boolean(data.owner));
+        return Boolean(data.owner);
+    } catch {
+        return false;
+    }
+}
+
 async function signInProvider(provider) {
     if (!authClient) {
-        setAuthStatus("Add Supabase URL and publishable key in Settings first.");
+        setAuthStatus("Account sign-in is not configured yet.");
         return;
     }
     setAuthStatus("Opening " + provider + " sign-in...");
@@ -527,6 +553,8 @@ guestButton?.addEventListener("click", async () => {
 });
 googleButton?.addEventListener("click", () => signInProvider("google"));
 appleButton?.addEventListener("click", () => signInProvider("apple"));
+
+
 signOutButton?.addEventListener("click", async () => {
     if (authClient) await authClient.auth.signOut();
     authSession = null;
