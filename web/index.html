@@ -50,17 +50,6 @@
         </section>
 
         <section class="dashboard-grid">
-            <article class="panel status-panel">
-                <div class="panel-title"><span>◈</span> SYSTEM STATUS <b id="statusLabel">CHECKING</b></div>
-                <div class="status-list">
-                    <div><span class="status-light"></span><span>AI CORE</span><strong id="aiStatus">CHECKING</strong></div>
-                    <div><span class="status-light"></span><span>VOICE SYSTEM</span><strong id="voiceStatus">READY</strong></div>
-                    <div><span class="status-light"></span><span>MEMORY</span><strong id="memoryStatus">LOCAL</strong></div>
-                    <div><span class="status-light"></span><span>BACKEND LINK</span><strong id="backendStatus">OFFLINE</strong></div>
-                </div>
-                <div class="panel-foot" id="systemFoot">WAITING FOR CONNECTION</div>
-            </article>
-
             <article class="panel schedule-panel">
                 <div class="panel-title"><span>▣</span> TODAY'S COMMANDS <b>LOCAL</b></div>
                 <button class="schedule-row" data-command="Give me a concise system status report."><time>01</time><span>System status report</span><i>›</i></button>
@@ -130,7 +119,7 @@
             <nav class="nav-list">
                 <button class="nav-item active" data-command="Return to the main dashboard."><span>⌂</span><b>DASHBOARD</b></button>
                 <button class="nav-item" data-command="Tell me what you can currently do, including your reasoning and available capabilities."><span>◎</span><b>INTELLIGENCE</b></button>
-                <button class="nav-item" data-command="Give me a detailed system status report."><span>▣</span><b>SYSTEM</b></button>
+                <button id="systemStatusNav" class="nav-item" type="button"><span>▣</span><b>SYSTEM STATUS</b><em id="menuStatusBadge">CHECKING</em></button>
                 <button class="nav-item" data-command="Tell me about the current voice system and voice capabilities."><span>◉</span><b>VOICE</b></button>
                 <button id="memoryNav" class="nav-item" data-memory-nav="true"><span>◌</span><b>MEMORY</b><em id="memoryBadge">0</em></button>
                 <div class="nav-divider"></div>
@@ -139,6 +128,20 @@
                 <button class="nav-item" data-command="Tell me about file and document capabilities."><span>□</span><b>FILES</b></button>
                 <button class="nav-item" data-command="Tell me about web search capabilities."><span>⌕</span><b>WEB SEARCH</b></button>
             </nav>
+            <section id="systemStatusMenu" class="menu-status-card hidden" aria-hidden="true">
+                <div class="menu-status-head">
+                    <span class="section-kicker">LIVE DIAGNOSTICS</span>
+                    <button id="closeSystemStatus" class="menu-status-close" type="button" aria-label="Close system status">×</button>
+                </div>
+                <div class="menu-status-title">SYSTEM STATUS <b id="statusLabel">CHECKING</b></div>
+                <div class="status-list">
+                    <div><span class="status-light"></span><span>AI CORE</span><strong id="aiStatus">CHECKING</strong></div>
+                    <div><span class="status-light"></span><span>VOICE SYSTEM</span><strong id="voiceStatus">READY</strong></div>
+                    <div><span class="status-light"></span><span>MEMORY</span><strong id="memoryStatus">LOCAL</strong></div>
+                    <div><span class="status-light"></span><span>BACKEND LINK</span><strong id="backendStatus">OFFLINE</strong></div>
+                </div>
+                <div class="panel-foot" id="systemFoot">WAITING FOR CONNECTION</div>
+            </section>
             <div class="menu-bottom">
                 <button id="newChatButton" class="new-chat-button">＋ NEW CHAT</button>
                 <button id="accountButton" class="settings-menu-button">◉ ACCOUNT</button>
