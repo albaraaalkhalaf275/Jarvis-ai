@@ -1,13 +1,15 @@
 import ast
+import html
 import math
 import operator
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
+import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
@@ -27,6 +29,13 @@ app.add_middleware(
 API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 AUTH_TOKEN = os.getenv("JARVIS_AUTH_TOKEN", "").strip()
+
+AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY", "").strip()
+AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "").strip()
+AZURE_TTS_VOICE = os.getenv(
+    "AZURE_TTS_VOICE",
+    "en-GB-Ryan:DragonHDLatestNeural",
+).strip()
 
 SYSTEM = """
 You are JARVIS, a personal AI assistant.
@@ -54,6 +63,10 @@ class ChatResponse(BaseModel):
     reply: str
     model: str
     session_id: Optional[str] = None
+
+
+class SpeakRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
 
 
 def check_auth(authorization: Optional[str]):
@@ -137,11 +150,24 @@ def local_fast_path(message: str) -> Optional[str]:
     return None
 
 
+def build_ssml(text: str) -> str:
+    safe_text = html.escape(text, quote=False)
+    return f"""<speak version="1.0"
+xmlns="http://www.w3.org/2001/10/synthesis"
+xmlns:mstts="http://www.w3.org/2001/mstts"
+xml:lang="en-GB">
+<voice name="{html.escape(AZURE_TTS_VOICE, quote=True)}">
+<prosody rate="-5%" pitch="-2st">{safe_text}</prosody>
+</voice>
+</speak>"""
+
+
 @app.get("/health")
 def health():
     return {
         "ok": True,
         "gemini_configured": bool(API_KEY),
+        "tts_configured": bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION),
         "model": MODEL,
         "sessions": len(SESSIONS),
     }
@@ -154,18 +180,56 @@ def status(authorization: Optional[str] = Header(default=None)):
         "ok": True,
         "service": "JARVIS",
         "gemini_configured": bool(API_KEY),
+        "tts_configured": bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION),
+        "tts_voice": AZURE_TTS_VOICE,
         "model": MODEL,
         "active_sessions": len(SESSIONS),
         "capabilities": [
             "chat",
             "conversation context",
+            "neural British text-to-speech",
             "voice through the web client",
-            "text-to-speech through the web client",
             "time",
             "date",
             "calculator",
         ],
     }
+
+
+@app.post("/api/speak")
+async def speak(req: SpeakRequest, authorization: Optional[str] = Header(default=None)):
+    check_auth(authorization)
+
+    if not AZURE_SPEECH_KEY or not AZURE_SPEECH_REGION:
+        raise HTTPException(status_code=503, detail="Azure Speech is not configured")
+
+    endpoint = (
+        f"https://{AZURE_SPEECH_REGION}.tts.speech.microsoft.com/"
+        "cognitiveservices/v1"
+    )
+
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+        "User-Agent": "JARVIS-AI",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            result = await client.post(
+                endpoint,
+                headers=headers,
+                content=build_ssml(req.text),
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Speech service connection failed: {exc}")
+
+    if result.status_code != 200:
+        detail = result.text[:500] or "Azure Speech synthesis failed"
+        raise HTTPException(status_code=502, detail=detail)
+
+    return Response(content=result.content, media_type="audio/mpeg")
 
 
 @app.post("/api/chat", response_model=ChatResponse)
