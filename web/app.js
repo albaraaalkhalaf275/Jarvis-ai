@@ -27,6 +27,10 @@ const memoryBadge = document.getElementById("memoryBadge");
 const memoryCount = document.getElementById("memoryCount");
 const newChatButton = document.getElementById("newChatButton");
 const clearMemory = document.getElementById("clearMemory");
+const systemStatusNav = document.getElementById("systemStatusNav");
+const systemStatusMenu = document.getElementById("systemStatusMenu");
+const closeSystemStatus = document.getElementById("closeSystemStatus");
+const menuStatusBadge = document.getElementById("menuStatusBadge");
 
 let backendUrl = "";
 let authToken = "";
@@ -475,6 +479,18 @@ menuButton?.addEventListener("click", () => setMenu(true));
 closeMenu?.addEventListener("click", () => setMenu(false));
 sideMenuBackdrop?.addEventListener("click", () => setMenu(false));
 
+function setSystemStatus(open) {
+    if (!systemStatusMenu) return;
+    systemStatusMenu.classList.toggle("hidden", !open);
+    systemStatusMenu.setAttribute("aria-hidden", String(!open));
+    systemStatusNav?.setAttribute("aria-expanded", String(open));
+}
+
+systemStatusNav?.addEventListener("click", () => {
+    setSystemStatus(!systemStatusMenu?.classList.contains("hidden"));
+});
+closeSystemStatus?.addEventListener("click", () => setSystemStatus(false));
+
 document.getElementById("memoryNav")?.addEventListener("click", () => { setMenu(false); setMemory(true); });
 closeMemory?.addEventListener("click", () => setMemory(false));
 memoryBackdrop?.addEventListener("click", () => setMemory(false));
@@ -628,6 +644,7 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => navigato
         if (aiStatus) aiStatus.textContent = displayState;
         if (voiceStatus) voiceStatus.textContent = online ? 'READY' : connecting ? 'CONNECTING' : 'OFFLINE';
         if (statusLabel) statusLabel.textContent = online ? 'OPERATIONAL' : connecting ? 'CONNECTING' : state;
+        if (menuStatusBadge) menuStatusBadge.textContent = online ? 'ONLINE' : connecting ? 'CONNECTING' : state;
         if (coreCaption) coreCaption.textContent = online ? 'LISTENING...' : connecting ? 'CONNECTING...' : 'STANDBY';
     }
     if (statusText) new MutationObserver(sync).observe(statusText, {childList:true,subtree:true,characterData:true});
