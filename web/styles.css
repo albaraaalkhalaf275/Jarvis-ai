@@ -38,3 +38,28 @@ footer{max-width:1180px;margin:auto;padding:5px 20px 18px;display:flex;justify-c
 .conversation-feed .message{max-width:78%;padding:10px 13px;border:1px solid #123c4b;border-radius:7px;background:#05131b;color:#a9c0c8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px;line-height:1.45;white-space:pre-wrap}
 .conversation-feed .message.user{align-self:flex-end;border-color:#15566b;background:#08212b;color:#d9f8ff}
 .conversation-feed .message.jarvis{align-self:flex-start;background:#041017}
+
+.auth-card{max-width:430px}.auth-subtitle{color:#66818b;font-size:10px;line-height:1.6}.auth-provider{width:100%;height:46px;border-radius:7px;border:1px solid #1a5060;background:#06141c;color:#d9f8ff;margin-top:8px;font-size:10px;letter-spacing:1px}.auth-provider:hover{border-color:#2bd7f3;background:#08202a}.auth-provider.google{background:#f7f7f7;color:#202124;border-color:#f7f7f7}.auth-provider.google span{font-family:Arial,sans-serif;font-weight:700;font-size:15px;margin-right:7px}.auth-provider.apple{background:#000;color:#fff;border-color:#333}.auth-provider.apple span{margin-right:8px}.auth-divider{display:flex;align-items:center;gap:10px;color:#3d5e68;font-size:8px;margin:15px 0}.auth-divider:before,.auth-divider:after{content:"";height:1px;background:#123847;flex:1}.auth-status{min-height:28px;color:#557782;font-size:8px;line-height:1.5}.auth-signout{margin-top:8px}.optional-label{font-size:7px;color:#3f7784}
+@media(max-width:600px){
+  body{background:#010507}
+  .topbar{height:58px;position:sticky;top:0;z-index:20;padding:8px 10px}
+  .brand{gap:8px}.brand-mark{width:32px;height:32px}.menu-button{width:34px;height:34px}.logo{font-size:13px;letter-spacing:3px}
+  .top-status{font-size:7px;gap:6px}.status-divider,.top-status #topTime{display:none}
+  main{padding:8px 9px 92px}
+  .clock-section{padding:7px 0 11px}.clock-line{font-size:42px}.date-line{font-size:8px}
+  .dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .core-panel{grid-column:1/-1;min-height:188px;border-radius:12px}
+  .core-ring{width:142px;height:142px}.core-orbit-1{width:185px;height:65px}.core-orbit-2{width:200px;height:95px}.core-orbit-3{width:160px;height:160px}.core-caption{bottom:13px}
+  .status-panel{grid-column:1/-1;min-height:auto;padding:11px}.status-list{grid-template-columns:1fr 1fr;gap:9px 12px;padding:12px 0 8px}.status-list div{grid-template-columns:7px 1fr;gap:6px;font-size:8px}.status-list strong{grid-column:2;font-size:8px}.panel-foot{font-size:7px}
+  .schedule-panel,.environment-panel,.activity-panel{display:none}
+  .quick-panel{grid-column:1/-1;min-height:auto;padding:11px}.quick-grid{grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.quick-grid button{height:52px;flex-direction:column;gap:3px;font-size:7px;padding:3px}.quick-grid button span{font-size:11px}
+  .conversation-feed{max-height:36vh;margin-top:8px;gap:6px}.conversation-feed .message{max-width:88%;font-size:13px;padding:9px 11px;border-radius:10px}
+  .command-console{position:fixed;left:8px;right:8px;bottom:calc(7px + env(safe-area-inset-bottom));z-index:25;margin:0;padding:7px 8px;border-radius:20px;background:rgba(2,10,15,.96);backdrop-filter:blur(14px);box-shadow:0 8px 35px rgba(0,0,0,.65)}
+  .command-label{font-size:7px;padding:0 8px 3px}.input-area input{height:42px;font-size:15px}.input-area button{width:42px;height:42px}.console-hint{display:none}
+  footer{display:none}
+  .side-menu-panel{width:100%;max-width:none;border-right:0;border-top:1px solid #1b5668;top:auto;bottom:0;height:auto;max-height:86vh;border-radius:18px 18px 0 0;transform:translateY(100%);padding:16px}.side-menu.open .side-menu-panel{transform:translateY(0)}.side-menu-header{padding-bottom:10px}.nav-list{grid-template-columns:1fr 1fr;gap:2px;padding-top:9px}.nav-divider{grid-column:1/-1}.nav-item{padding:10px 7px}.menu-bottom{grid-template-columns:1fr 1fr;margin-top:10px;padding-top:10px}
+  .settings,.memory-panel{padding:9px}.memory-card,.settings-card{max-height:88vh;border-radius:14px;padding:15px}
+}
+@media(min-width:1000px){
+  .command-console{position:sticky;bottom:10px;z-index:10}
+}
