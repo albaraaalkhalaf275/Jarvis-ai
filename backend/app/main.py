@@ -43,6 +43,7 @@ TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
 JARVIS_OWNER_PHONE = os.getenv("JARVIS_OWNER_PHONE", "").strip()
 OWNER_EMAIL = os.getenv("JARVIS_OWNER_EMAIL", "").strip().lower()
 OWNER_USER_ID = os.getenv("JARVIS_OWNER_USER_ID", "").strip()
+OWNER_GITHUB_LOGIN = os.getenv("JARVIS_OWNER_GITHUB_LOGIN", "").strip().lower()
 ALLOW_GUEST = os.getenv("ALLOW_GUEST", "true").strip().lower() in {"1", "true", "yes"}
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "").strip()
