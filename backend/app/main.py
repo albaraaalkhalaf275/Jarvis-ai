@@ -196,12 +196,48 @@ def authenticate_request(authorization: Optional[str], request: Optional[Request
     if AUTH_TOKEN and authorization == f"Bearer {AUTH_TOKEN}":
         return {"guest": False, "legacy": True, "owner": True}
 
-    if authorization.startswith("Bearer ") and SUPABASE_JWKS:
-        token = authorization[7:].strip()
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid JARVIS authentication token")
+
+    token = authorization[7:].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Invalid JARVIS authentication token")
+
+    # Prefer Supabase's Auth user endpoint for browser access tokens.
+    # The endpoint validates the access token server-side and returns the canonical user.
+    if SUPABASE_URL:
+        try:
+            result = httpx.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "apikey": SUPABASE_PUBLISHABLE_KEY or token,
+                },
+                timeout=8,
+            )
+            if result.status_code == 200:
+                user = result.json()
+                user_id = str(user.get("id") or "")
+                email = str(user.get("email") or "").lower()
+                owner = bool(
+                    (OWNER_USER_ID and user_id == OWNER_USER_ID)
+                    or (OWNER_EMAIL and email == OWNER_EMAIL)
+                )
+                return {
+                    "guest": False,
+                    "user_id": user_id,
+                    "email": email,
+                    "owner": owner,
+                }
+        except httpx.HTTPError:
+            pass
+
+    # Fallback to local JWT verification when the Auth endpoint is unavailable.
+    if SUPABASE_JWKS:
         try:
             header = jwt.get_unverified_header(token)
             alg = header.get("alg")
-            if alg not in {"ES256", "RS256", "HS256"}:
+            if alg not in {"ES256", "RS256"}:
                 raise ValueError("Unsupported JWT algorithm")
             signing_key = SUPABASE_JWKS.get_signing_key_from_jwt(token)
             claims = jwt.decode(
@@ -212,17 +248,21 @@ def authenticate_request(authorization: Optional[str], request: Optional[Request
                 issuer=SUPABASE_ISSUER,
             )
             user_id = str(claims.get("sub") or "")
-            email = str(claims.get("email") or claims.get("user_metadata", {}).get("email") or "").lower()
+            email = str(claims.get("email") or "").lower()
             owner = bool(
                 (OWNER_USER_ID and user_id == OWNER_USER_ID)
                 or (OWNER_EMAIL and email == OWNER_EMAIL)
             )
-            return {"guest": False, "user_id": user_id, "email": email, "owner": owner}
+            return {
+                "guest": False,
+                "user_id": user_id,
+                "email": email,
+                "owner": owner,
+            }
         except Exception:
             pass
 
     raise HTTPException(status_code=401, detail="Invalid JARVIS authentication token")
-
 
 def check_auth(authorization: Optional[str], request: Optional[Request] = None):
     return authenticate_request(authorization, request)
