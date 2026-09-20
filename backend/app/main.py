@@ -20,6 +20,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 from google import genai
 from twilio.rest import Client as TwilioClient
+from twilio.request_validator import RequestValidator
 from twilio.twiml.voice_response import VoiceResponse
 
 load_dotenv()
@@ -352,6 +353,13 @@ async def fish_tts(text: str) -> bytes:
 
 @app.post("/api/voice/twiml")
 async def voice_twiml(request: Request):
+    if not TWILIO_AUTH_TOKEN:
+        raise HTTPException(status_code=503, detail="Twilio voice is not configured")
+    form = await request.form()
+    signature = request.headers.get("X-Twilio-Signature", "")
+    validator = RequestValidator(TWILIO_AUTH_TOKEN)
+    if not validator.validate(str(request.url), dict(form), signature):
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
     response = VoiceResponse()
     connect = response.connect()
     connect.conversation_relay(
@@ -380,6 +388,14 @@ async def voice_call(request: Request, authorization: Optional[str] = Header(def
 
 @app.websocket("/api/voice/ws")
 async def voice_ws(websocket: WebSocket):
+    if not TWILIO_AUTH_TOKEN:
+        await websocket.close(code=1008, reason="Twilio voice is not configured")
+        return
+    signature = websocket.headers.get("x-twilio-signature", "")
+    validator = RequestValidator(TWILIO_AUTH_TOKEN)
+    if not validator.validate(str(websocket.url), dict(websocket.query_params), signature):
+        await websocket.close(code=1008, reason="Invalid Twilio signature")
+        return
     await websocket.accept()
     if not API_KEY:
         await websocket.close(code=1011, reason="Gemini is not configured")
