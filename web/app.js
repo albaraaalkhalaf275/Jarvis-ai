@@ -107,7 +107,7 @@ function setAccountLabel() {
         accountButton.textContent = "◉ ACCOUNT";
         if (signOutButton) signOutButton.classList.add("hidden");
     }
-    applyOwnerUI(false);
+    if (!authSession) applyOwnerUI(false);
 }
 async function initAuth() {
     savedSupabaseUrl = readStorage("jarvis_supabase_url");
@@ -515,14 +515,11 @@ document.querySelectorAll(".nav-item[data-command]").forEach(button => {
     button.addEventListener("click", event => {
         event.preventDefault();
         const command = button.dataset.command || "";
-        if (button.classList.contains("nav-item") && button.id !== "systemStatusNav") {
-            if (button.textContent.includes("DASHBOARD")) {
-                setMenu(false);
-                window.scrollTo({top:0, behavior:"smooth"});
-                return;
-            }
-        }
         setMenu(false);
+        if (button.textContent.includes("DASHBOARD")) {
+            window.scrollTo({top:0, behavior:"smooth"});
+            return;
+        }
         if (command) sendMessage(command);
     });
 });
@@ -530,18 +527,6 @@ document.querySelectorAll(".nav-item[data-command]").forEach(button => {
 menuButton?.addEventListener("click", () => setMenu(true));
 closeMenu?.addEventListener("click", () => setMenu(false));
 sideMenuBackdrop?.addEventListener("click", () => setMenu(false));
-
-function setSystemStatus(open) {
-    if (!systemStatusMenu) return;
-    systemStatusMenu.classList.toggle("hidden", !open);
-    systemStatusMenu.setAttribute("aria-hidden", String(!open));
-    systemStatusNav?.setAttribute("aria-expanded", String(open));
-}
-
-systemStatusNav?.addEventListener("click", () => {
-    setSystemStatus(!systemStatusMenu?.classList.contains("hidden"));
-});
-closeSystemStatus?.addEventListener("click", () => setSystemStatus(false));
 
 document.getElementById("memoryNav")?.addEventListener("click", () => { setMenu(false); setMemory(true); });
 closeMemory?.addEventListener("click", () => setMemory(false));
@@ -559,6 +544,7 @@ clearMemory?.addEventListener("click", () => {
 });
 
 settingsButton?.addEventListener("click", () => {
+    if (!isOwner) return;
     setMenu(false);
     settingsPanel.classList.remove("hidden");
     backendUrlInput.value = backendUrl;
