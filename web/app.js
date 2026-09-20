@@ -310,6 +310,13 @@ async function checkBackend() {
     }
 }
 
+function getJarvisMode(message) {
+    const text = String(message || "").toLowerCase();
+    if (/\b(fun mode|time for fun|let's have fun|lets have fun|mess around|joke mode|be funny)\b/.test(text)) return "fun";
+    if (/\b(serious mode|duty mode|back to work|focus mode|be serious)\b/.test(text)) return "duty";
+    return null;
+}
+
 async function sendMessage(message) {
     message = String(message || "").trim();
     if (!message || busy) return;
