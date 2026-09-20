@@ -498,7 +498,33 @@ async function sendMessage(message) {
 
 chatForm.addEventListener("submit", event => { event.preventDefault(); sendMessage(messageInput.value); });
 document.querySelectorAll("[data-command]").forEach(button => {
-    button.addEventListener("click", () => sendMessage(button.dataset.command));
+    button.addEventListener("click", () => {
+        const command = button.dataset.command;
+        setMenu(false);
+        if (command) sendMessage(command);
+    });
+});
+
+function focusSection(section) {
+    setMenu(false);
+    const target = document.querySelector(section);
+    if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+document.querySelectorAll(".nav-item[data-command]").forEach(button => {
+    button.addEventListener("click", event => {
+        event.preventDefault();
+        const command = button.dataset.command || "";
+        if (button.classList.contains("nav-item") && button.id !== "systemStatusNav") {
+            if (button.textContent.includes("DASHBOARD")) {
+                setMenu(false);
+                window.scrollTo({top:0, behavior:"smooth"});
+                return;
+            }
+        }
+        setMenu(false);
+        if (command) sendMessage(command);
+    });
 });
 
 menuButton?.addEventListener("click", () => setMenu(true));
@@ -659,7 +685,7 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => navigato
     const aiStatus = document.getElementById('aiStatus');
     const voiceStatus = document.getElementById('voiceStatus');
     const statusLabel = document.getElementById('statusLabel');
-    const coreCaption = document.getElementById('coreCaption');
+    const coreCaption = null;
     function sync() {
         const state = statusText ? statusText.textContent.trim() : 'OFFLINE';
         const online = state === 'ONLINE';
@@ -673,7 +699,7 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => navigato
         if (voiceStatus) voiceStatus.textContent = online ? 'READY' : connecting ? 'CONNECTING' : 'OFFLINE';
         if (statusLabel) statusLabel.textContent = online ? 'OPERATIONAL' : connecting ? 'CONNECTING' : state;
         if (menuStatusBadge) menuStatusBadge.textContent = online ? 'ONLINE' : connecting ? 'CONNECTING' : state;
-        if (coreCaption) coreCaption.textContent = online ? 'LISTENING...' : connecting ? 'CONNECTING...' : 'STANDBY';
+
     }
     if (statusText) new MutationObserver(sync).observe(statusText, {childList:true,subtree:true,characterData:true});
     sync();
