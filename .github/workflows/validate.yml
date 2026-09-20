@@ -1,0 +1,21 @@
+name: Validate JARVIS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Python syntax
+        run: python -m py_compile backend/app/main.py
+
+      - name: Validate JavaScript syntax
+        run: node --check web/app.js
+
+      - name: Validate service worker syntax
+        run: node --check web/sw.js
