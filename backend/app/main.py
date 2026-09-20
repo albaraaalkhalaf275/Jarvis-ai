@@ -531,7 +531,7 @@ async def speak(req: SpeakRequest, request: Request, authorization: Optional[str
     
 @app.post("/api/chat/stream")
 def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
-    check_auth(authorization, request)
+    user = authenticate_request(authorization, request)
 
     if not API_KEY:
         raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
@@ -597,7 +597,7 @@ def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str]
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
-    check_auth(authorization, request)
+    user = authenticate_request(authorization, request)
 
     if not API_KEY:
         raise HTTPException(status_code=503, detail="GEMINI_API_KEY is not configured")
