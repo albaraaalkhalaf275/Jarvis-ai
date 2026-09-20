@@ -523,11 +523,11 @@ document.getElementById("quickNewChat")?.addEventListener("click", startNewChat)
 document.getElementById("openMemoryFromRecent")?.addEventListener("click", () => setMemory(true));
 document.getElementById("accountMenuButton")?.addEventListener("click", () => { setMenu(false); authPanel?.classList.remove("hidden"); });
 document.getElementById("systemStatusNav")?.addEventListener("click", () => {
-    setMenu(false);
-    systemStatusMenu?.classList.toggle("hidden");
+    setMenu(true);
+    systemStatusMenu?.classList.remove("hidden");
 });
 document.getElementById("quickSystem")?.addEventListener("click", () => {
-    setMenu(false);
+    setMenu(true);
     systemStatusMenu?.classList.remove("hidden");
 });
 
