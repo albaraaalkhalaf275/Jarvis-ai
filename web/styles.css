@@ -1,0 +1,315 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #05070c;
+    --panel: #0b1019;
+    --panel-2: #101722;
+    --line: #1c2a3d;
+    --text: #edf5ff;
+    --muted: #718096;
+    --accent: #36a9ff;
+    --accent-2: #76d4ff;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+    min-height: 100vh;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.app {
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 20%, rgba(30, 130, 220, 0.12), transparent 35%),
+        var(--bg);
+}
+
+header {
+    height: 76px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    background: rgba(5, 7, 12, 0.85);
+    backdrop-filter: blur(14px);
+}
+
+.logo {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 5px;
+}
+
+.status {
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+}
+
+#statusDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #596273;
+    box-shadow: 0 0 8px rgba(89, 98, 115, 0.5);
+}
+
+#settingsButton {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+}
+
+main {
+    width: min(900px, 100%);
+    margin: auto;
+    padding: 24px 18px 30px;
+}
+
+.reactor-section {
+    text-align: center;
+    padding: 20px 0 28px;
+}
+
+.reactor {
+    width: 155px;
+    height: 155px;
+    margin: 0 auto 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(54, 169, 255, 0.65);
+    box-shadow:
+        0 0 25px rgba(54, 169, 255, 0.18),
+        inset 0 0 30px rgba(54, 169, 255, 0.08);
+    animation: pulse 3s ease-in-out infinite;
+}
+
+.reactor-core {
+    width: 75px;
+    height: 75px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--accent-2);
+    background: radial-gradient(circle, #183e5c, #07111d 70%);
+    box-shadow: 0 0 30px rgba(54, 169, 255, 0.35);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 3px;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow:
+            0 0 25px rgba(54, 169, 255, 0.18),
+            inset 0 0 30px rgba(54, 169, 255, 0.08);
+    }
+
+    50% {
+        transform: scale(1.035);
+        box-shadow:
+            0 0 45px rgba(54, 169, 255, 0.28),
+            inset 0 0 40px rgba(54, 169, 255, 0.12);
+    }
+}
+
+.reactor-section h1 {
+    margin: 0;
+    font-size: 27px;
+}
+
+.reactor-section p {
+    margin: 8px 0 0;
+    color: var(--muted);
+}
+
+.messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.message {
+    max-width: 85%;
+    padding: 13px 15px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.message.user {
+    align-self: flex-end;
+    background: #102235;
+    border-color: #214766;
+}
+
+.message.jarvis {
+    align-self: flex-start;
+    background: var(--panel);
+}
+
+.quick-actions {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0 14px;
+}
+
+.quick-actions button {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 9px 13px;
+    background: var(--panel);
+    color: var(--muted);
+}
+
+.input-area {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(11, 16, 25, 0.95);
+}
+
+.input-area input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+}
+
+.input-area input::placeholder {
+    color: #566276;
+}
+
+.input-area button {
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel-2);
+    color: var(--text);
+}
+
+#sendButton {
+    background: #123451;
+    border-color: #255b80;
+}
+
+.settings {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px);
+}
+
+.settings.hidden {
+    display: none;
+}
+
+.settings-card {
+    width: min(500px, 100%);
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: #0b1019;
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.5);
+}
+
+.settings-card h2 {
+    margin-top: 0;
+}
+
+.settings-card label {
+    display: block;
+    margin: 15px 0 7px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.settings-card input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    outline: none;
+    background: #070b12;
+    color: var(--text);
+}
+
+.settings-card p {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.settings-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.settings-actions button {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel-2);
+    color: var(--text);
+}
+
+@media (min-width: 700px) {
+    main {
+        padding-top: 35px;
+    }
+
+    .reactor {
+        width: 190px;
+        height: 190px;
+    }
+
+    .reactor-core {
+        width: 90px;
+        height: 90px;
+    }
+}
