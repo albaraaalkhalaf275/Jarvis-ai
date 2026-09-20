@@ -9,6 +9,7 @@
     <title>JARVIS</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="app">
@@ -29,7 +30,7 @@
         </div>
         <div class="top-status">
             <span class="online-dot"></span>
-            <span id="statusText">OFFLINE</span>
+            <span id="statusText">CONNECTING</span>
             <span class="status-divider"></span>
             <span id="topTime">--:--</span>
         </div>
@@ -143,6 +144,7 @@
             </nav>
             <div class="menu-bottom">
                 <button id="newChatButton" class="new-chat-button">＋ NEW CHAT</button>
+                <button id="accountButton" class="settings-menu-button">◉ ACCOUNT</button>
                 <button id="settingsButton" class="settings-menu-button">⚙ SETTINGS</button>
                 <div class="menu-version">JARVIS v1.0 • NEURAL CORE</div>
             </div>
@@ -162,6 +164,19 @@
         </section>
     </div>
 
+    <div id="authPanel" class="settings hidden">
+        <div class="settings-card auth-card">
+            <div class="settings-top"><div><span class="section-kicker">JARVIS ACCESS</span><h2 id="authTitle">Continue to JARVIS</h2></div><button id="closeAuth" class="close-button">×</button></div>
+            <p class="auth-subtitle">Use JARVIS as a guest, or sign in to sync your account and future cloud memory.</p>
+            <button id="guestButton" class="auth-provider guest">CONTINUE AS GUEST</button>
+            <div class="auth-divider"><span>OR</span></div>
+            <button id="googleButton" class="auth-provider google"><span>G</span> CONTINUE WITH GOOGLE</button>
+            <button id="appleButton" class="auth-provider apple"><span>●</span> CONTINUE WITH APPLE</button>
+            <p id="authStatus" class="auth-status">Guest mode is available immediately. Google and Apple require account provider setup.</p>
+            <button id="signOutButton" class="clear-memory auth-signout hidden">SIGN OUT</button>
+        </div>
+    </div>
+
     <div id="settingsPanel" class="settings hidden">
         <div class="settings-card">
             <div class="settings-top"><div><span class="section-kicker">SYSTEM CONFIG</span><h2>JARVIS Configuration</h2></div><button id="closeSettings" class="close-button">×</button></div>
@@ -169,7 +184,11 @@
             <input id="backendUrl" type="url" placeholder="https://your-backend-url.com">
             <label>Authentication Token</label>
             <input id="authToken" type="password" placeholder="Optional token">
-            <p>Gemini and Azure Speech keys stay on the backend. Connection settings are stored locally on this device.</p>
+            <p>Gemini and Fish Audio keys stay on the backend. Connection settings are stored locally on this device. Authentication uses Supabase when configured.</p>
+            <label>Supabase URL <span class="optional-label">optional</span></label>
+            <input id="supabaseUrl" type="url" placeholder="https://your-project.supabase.co">
+            <label>Supabase Publishable Key <span class="optional-label">optional</span></label>
+            <input id="supabaseKey" type="password" placeholder="sb_publishable_...">
             <div class="settings-actions"><button id="saveSettings">Save Configuration</button></div>
         </div>
     </div>
