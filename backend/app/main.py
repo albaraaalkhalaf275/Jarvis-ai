@@ -466,6 +466,16 @@ async def voice_ws(websocket: WebSocket):
         except Exception:
             pass
 
+@app.get("/api/me")
+def current_user(authorization: Optional[str] = Header(default=None), request: Request = None):
+    user = authenticate_request(authorization, request)
+    return {
+        "authenticated": not user.get("guest", False),
+        "owner": bool(user.get("owner", False)),
+        "user_id": user.get("user_id"),
+    }
+
+
 @app.get("/api/config")
 def public_config():
     return {
