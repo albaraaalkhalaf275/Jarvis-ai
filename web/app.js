@@ -33,6 +33,10 @@ let authToken = "";
 let busy = false;
 let recognition = null;
 let currentAudio = null;
+let authClient = null;
+let authSession = null;
+let backendFailures = 0;
+let lastBackendCheck = 0;
 
 function readStorage(key, fallback = "") {
     try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
@@ -47,10 +51,75 @@ function newId() {
     return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
 }
 
+
+function setAuthStatus(text) {
+    if (authStatus) authStatus.textContent = text;
+}
+function setAccountLabel() {
+    if (!accountButton) return;
+    if (authSession?.user) {
+        const name = authSession.user.user_metadata?.full_name || authSession.user.email || "ACCOUNT";
+        accountButton.textContent = "◉ " + String(name).split(" ")[0].slice(0, 14).toUpperCase();
+        if (signOutButton) signOutButton.classList.remove("hidden");
+    } else {
+        accountButton.textContent = "◉ ACCOUNT";
+        if (signOutButton) signOutButton.classList.add("hidden");
+    }
+}
+async function initAuth() {
+    if (!window.supabase || !savedSupabaseUrl || !savedSupabaseKey) {
+        setAuthStatus("Guest mode is available. Add Supabase settings to enable Google and Apple.");
+        setAccountLabel();
+        return;
+    }
+    try {
+        authClient = window.supabase.createClient(savedSupabaseUrl, savedSupabaseKey);
+        const result = await authClient.auth.getSession();
+        authSession = result.data?.session || null;
+        setAccountLabel();
+        authClient.auth.onAuthStateChange((_event, session) => {
+            authSession = session;
+            setAccountLabel();
+            if (session) {
+                setAuthStatus("Signed in. Your JARVIS session is authenticated.");
+                checkBackend();
+            }
+        });
+    } catch {
+        setAuthStatus("Account service is not configured correctly. Guest mode remains available.");
+    }
+}
+async function signInProvider(provider) {
+    if (!authClient) {
+        setAuthStatus("Add Supabase URL and publishable key in Settings first.");
+        return;
+    }
+    setAuthStatus("Opening " + provider + " sign-in...");
+    const { error } = await authClient.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+    if (error) setAuthStatus(error.message);
+}
+
 backendUrl = readStorage("jarvis_backend_url").trim().replace(/\/$/, "");
 authToken = readStorage("jarvis_auth_token");
 backendUrlInput.value = backendUrl;
 authTokenInput.value = authToken;
+const supabaseUrlInput = document.getElementById("supabaseUrl");
+const supabaseKeyInput = document.getElementById("supabaseKey");
+const accountButton = document.getElementById("accountButton");
+const authPanel = document.getElementById("authPanel");
+const closeAuth = document.getElementById("closeAuth");
+const guestButton = document.getElementById("guestButton");
+const googleButton = document.getElementById("googleButton");
+const appleButton = document.getElementById("appleButton");
+const authStatus = document.getElementById("authStatus");
+const signOutButton = document.getElementById("signOutButton");
+const savedSupabaseUrl = readStorage("jarvis_supabase_url");
+const savedSupabaseKey = readStorage("jarvis_supabase_key");
+if (supabaseUrlInput) supabaseUrlInput.value = savedSupabaseUrl;
+if (supabaseKeyInput) supabaseKeyInput.value = savedSupabaseKey;
 
 let archives = safeJSON("jarvis_conversations", []);
 let currentChat = safeJSON("jarvis_current_chat", null);
@@ -208,22 +277,33 @@ async function checkBackend() {
         subtitle.textContent = "Open Settings to connect JARVIS.";
         return false;
     }
-    setStatus(false, "CONNECTING");
+    const now = Date.now();
+    if (now - lastBackendCheck < 3000) return statusText.textContent === "ONLINE";
+    lastBackendCheck = now;
+    if (backendFailures === 0) setStatus(false, "CONNECTING");
     try {
-        const response = await fetchWithTimeout(backendUrl + "/health", {}, 10000);
+        const response = await fetchWithTimeout(backendUrl + "/health?ts=" + now, {cache:"no-store"}, 12000);
         if (!response.ok) throw new Error("HTTP " + response.status);
         const data = await response.json();
         window.jarvisModel = data.model || "ONLINE";
         if (!data.gemini_configured) throw new Error("Gemini is not configured");
+        backendFailures = 0;
         setStatus(true, "ONLINE");
-        subtitle.textContent = data.tts_configured ? "JARVIS systems operational." : "JARVIS online. Neural voice not configured.";
-        document.getElementById("voiceStatus").textContent = data.tts_configured ? "ONLINE" : "BROWSER";
+        subtitle.textContent = "JARVIS systems operational.";
+        document.getElementById("voiceStatus").textContent = data.tts_configured ? "ONLINE" : "FALLBACK";
         document.getElementById("systemFoot").textContent = "ALL SYSTEMS OPERATIONAL";
         return true;
     } catch (error) {
-        setStatus(false, "OFFLINE");
-        subtitle.textContent = error.name === "AbortError" ? "Backend connection timed out." : "Backend connection unavailable.";
-        document.getElementById("systemFoot").textContent = "CONNECTION REQUIRED";
+        backendFailures += 1;
+        if (backendFailures >= 3) {
+            setStatus(false, "OFFLINE");
+            subtitle.textContent = error.name === "AbortError" ? "Backend is waking up or unavailable." : "Backend connection unavailable. Retrying automatically.";
+            document.getElementById("systemFoot").textContent = "AUTO-RECONNECT ACTIVE";
+        } else {
+            setStatus(false, "CONNECTING");
+            subtitle.textContent = "Connecting to JARVIS...";
+            document.getElementById("systemFoot").textContent = "RETRYING CONNECTION";
+        }
         return false;
     }
 }
@@ -236,7 +316,7 @@ async function sendMessage(message) {
         return;
     }
 
-    const historyForRequest = history.filter(item => item.role === "user" || item.role === "assistant").slice(-20);
+    const historyForRequest = history.filter(item => item.role === "user" || item.role === "assistant").slice(-10);
     addMessage(message, "user");
     history.push({role:"user", text:message});
     if (currentChat.title === "New conversation") currentChat.title = message.slice(0, 42);
@@ -249,7 +329,8 @@ async function sendMessage(message) {
 
     try {
         const headers = {"Content-Type":"application/json"};
-        if (authToken) headers.Authorization = "Bearer " + authToken;
+        if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
+        else if (authToken) headers.Authorization = "Bearer " + authToken;
         const response = await fetchWithTimeout(backendUrl + "/api/chat", {
             method:"POST", headers,
             body:JSON.stringify({message, history:historyForRequest, session_id:sessionId})
@@ -309,13 +390,36 @@ settingsButton?.addEventListener("click", () => {
     authTokenInput.value = authToken;
 });
 closeSettings?.addEventListener("click", () => settingsPanel.classList.add("hidden"));
+accountButton?.addEventListener("click", () => { setMenu(false); authPanel?.classList.remove("hidden"); });
+closeAuth?.addEventListener("click", () => authPanel?.classList.add("hidden"));
+guestButton?.addEventListener("click", () => {
+    authSession = null;
+    setAccountLabel();
+    setAuthStatus("Guest mode active. Your conversations remain local on this device.");
+    authPanel?.classList.add("hidden");
+    checkBackend();
+});
+googleButton?.addEventListener("click", () => signInProvider("google"));
+appleButton?.addEventListener("click", () => signInProvider("apple"));
+signOutButton?.addEventListener("click", async () => {
+    if (authClient) await authClient.auth.signOut();
+    authSession = null;
+    setAccountLabel();
+    setAuthStatus("Signed out. Guest mode is still available.");
+});
 saveSettings?.addEventListener("click", async () => {
     const enteredBackendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
     const enteredAuthToken = authTokenInput.value.trim();
+    const enteredSupabaseUrl = supabaseUrlInput?.value.trim().replace(/\/$/, "") || "";
+    const enteredSupabaseKey = supabaseKeyInput?.value.trim() || "";
     if (enteredBackendUrl) { backendUrl = enteredBackendUrl; writeStorage("jarvis_backend_url", backendUrl); }
     if (enteredAuthToken) { authToken = enteredAuthToken; writeStorage("jarvis_auth_token", authToken); }
+    if (enteredSupabaseUrl) writeStorage("jarvis_supabase_url", enteredSupabaseUrl);
+    if (enteredSupabaseKey) writeStorage("jarvis_supabase_key", enteredSupabaseKey);
     backendUrlInput.value = backendUrl;
     authTokenInput.value = authToken;
+    if (supabaseUrlInput) supabaseUrlInput.value = enteredSupabaseUrl || savedSupabaseUrl;
+    if (supabaseKeyInput) supabaseKeyInput.value = enteredSupabaseKey || savedSupabaseKey;
     settingsPanel.classList.add("hidden");
     await checkBackend();
 });
@@ -335,7 +439,8 @@ async function speak(text) {
     if (!backendUrl) { speakWithBrowser(text); return; }
     if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; currentAudio = null; }
     const headers = {"Content-Type":"application/json"};
-    if (authToken) headers.Authorization = "Bearer " + authToken;
+    if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
+    else if (authToken) headers.Authorization = "Bearer " + authToken;
     try {
         const response = await fetchWithTimeout(backendUrl + "/api/speak", {
             method:"POST", headers, body:JSON.stringify({text})
@@ -381,7 +486,9 @@ updateClock();
 
 renderHistory();
 renderMemory();
+initAuth();
 checkBackend();
+setInterval(() => checkBackend(), 15000);
 messageInput.focus();
 
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
