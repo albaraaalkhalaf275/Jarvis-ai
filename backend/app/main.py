@@ -271,6 +271,25 @@ def local_fast_path(message: str) -> Optional[str]:
     return None
 
 
+def prepare_jarvis_speech(text: str) -> str:
+    """Prepare concise, controlled delivery for the JARVIS voice."""
+    text = re.sub(r"\\s+", " ", text).strip()
+    if not text:
+        return text
+
+    # Keep spoken output clean. Avoid reading markdown formatting aloud.
+    text = re.sub(r"```[\\s\\S]*?```", "", text)
+    text = re.sub(r"[*_`#]+", "", text)
+    text = re.sub(r"\\[([^\\]]+)\\]\\([^\\)]+\\)", r"\\1", text)
+    text = re.sub(r"\\s{2,}", " ", text).strip()
+
+    # Give short confirmations and status responses a deliberate opening.
+    if len(text) <= 140 and not text.startswith("["):
+        return f"[emphasis]{text}"
+
+    return text
+
+
 async def fish_tts(text: str) -> bytes:
     if not FISH_AUDIO_API_KEY:
         raise HTTPException(status_code=503, detail="Fish Audio is not configured")
@@ -281,7 +300,7 @@ async def fish_tts(text: str) -> bytes:
         "model": FISH_AUDIO_MODEL,
     }
     payload = {
-        "text": text,
+        "text": prepare_jarvis_speech(text),
         "reference_id": FISH_AUDIO_VOICE_ID,
         "format": "mp3",
     }
