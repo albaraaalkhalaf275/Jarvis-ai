@@ -11,7 +11,7 @@ Personal JARVIS-style AI assistant built as an iPhone-friendly PWA with a FastAP
 - Conversation history on the client
 - Server-side session context during a running backend session
 - Browser speech-to-text when supported
-- Browser text-to-speech
+- Fish Audio JARVIS text-to-speech with browser fallback
 - Health and status endpoints
 - Fast local time, date, and calculator responses
 - Service-worker cache updates
@@ -23,6 +23,9 @@ Set these on the backend host. Never commit them.
 - GEMINI_API_KEY
 - GEMINI_MODEL
 - JARVIS_AUTH_TOKEN
+- FISH_AUDIO_API_KEY
+- FISH_AUDIO_VOICE_ID (defaults to the JARVIS MCU voice ID)
+- FISH_AUDIO_MODEL (defaults to s2.1-pro)
 
 ## Manual setup still required
 
