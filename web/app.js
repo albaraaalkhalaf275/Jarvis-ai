@@ -124,14 +124,15 @@ async function initAuth() {
         authSession = result.data?.session || null;
         setAccountLabel();
         await syncOwnerAccess();
-        authClient.auth.onAuthStateChange(async (_event, session) => {
+        authClient.auth.onAuthStateChange((_event, session) => {
             authSession = session;
             setAccountLabel();
-            await syncOwnerAccess();
-            if (session) {
-                setAuthStatus("Signed in. Your JARVIS session is authenticated.");
-                checkBackend();
-            }
+            void syncOwnerAccess().then(() => {
+                if (session) {
+                    setAuthStatus("Signed in. Your JARVIS session is authenticated.");
+                    checkBackend();
+                }
+            });
         });
     } catch {
         setAuthStatus("Account service is not configured correctly. Guest mode remains available.");
