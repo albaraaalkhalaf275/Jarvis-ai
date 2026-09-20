@@ -560,3 +560,33 @@ setInterval(() => checkBackend(), 15000);
 messageInput.focus();
 
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+
+
+// Keep dashboard status cards synchronized with the live connection state.
+(function syncDashboardStatus() {
+    const root = document.querySelector('.app');
+    const statusText = document.getElementById('statusText');
+    const footerStatus = document.getElementById('footerStatus');
+    const backendStatus = document.getElementById('backendStatus');
+    const connectionValue = document.getElementById('connectionValue');
+    const aiStatus = document.getElementById('aiStatus');
+    const voiceStatus = document.getElementById('voiceStatus');
+    const statusLabel = document.getElementById('statusLabel');
+    const coreCaption = document.getElementById('coreCaption');
+    function sync() {
+        const state = statusText ? statusText.textContent.trim() : 'OFFLINE';
+        const online = state === 'ONLINE';
+        const connecting = state === 'CONNECTING';
+        root?.classList.toggle('online', online);
+        const displayState = online ? 'ONLINE' : connecting ? 'CONNECTING' : state;
+        if (footerStatus) footerStatus.textContent = displayState;
+        if (backendStatus) backendStatus.textContent = displayState;
+        if (connectionValue) connectionValue.textContent = displayState;
+        if (aiStatus) aiStatus.textContent = displayState;
+        if (voiceStatus) voiceStatus.textContent = online ? 'READY' : connecting ? 'CONNECTING' : 'OFFLINE';
+        if (statusLabel) statusLabel.textContent = online ? 'OPERATIONAL' : connecting ? 'CONNECTING' : state;
+        if (coreCaption) coreCaption.textContent = online ? 'LISTENING...' : connecting ? 'CONNECTING...' : 'STANDBY';
+    }
+    if (statusText) new MutationObserver(sync).observe(statusText, {childList:true,subtree:true,characterData:true});
+    sync();
+})();
