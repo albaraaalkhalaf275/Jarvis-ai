@@ -16,13 +16,34 @@ const saveSettings = document.getElementById("saveSettings");
 const backendUrlInput = document.getElementById("backendUrl");
 const authTokenInput = document.getElementById("authToken");
 
-let history = JSON.parse(localStorage.getItem("jarvis_history") || "[]");
-let backendUrl = (localStorage.getItem("jarvis_backend_url") || "").trim().replace(/\/$/, "");
-let authToken = localStorage.getItem("jarvis_auth_token") || "";
+function readStorage(key, fallback = "") {
+    try {
+        return localStorage.getItem(key) ?? fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function writeStorage(key, value) {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+let history = JSON.parse(readStorage("jarvis_history", "[]") || "[]");
+let backendUrl = readStorage("jarvis_backend_url").trim().replace(/\/$/, "");
+let authToken = readStorage("jarvis_auth_token");
 let busy = false;
 let recognition = null;
-let sessionId = localStorage.getItem("jarvis_session_id") || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
-localStorage.setItem("jarvis_session_id", sessionId);
+let sessionId = readStorage("jarvis_session_id");
+
+if (!sessionId) {
+    sessionId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+    writeStorage("jarvis_session_id", sessionId);
+}
 
 backendUrlInput.value = backendUrl;
 authTokenInput.value = authToken;
@@ -36,7 +57,7 @@ function addMessage(text, type) {
 }
 
 function saveHistory() {
-    localStorage.setItem("jarvis_history", JSON.stringify(history.slice(-50)));
+    writeStorage("jarvis_history", JSON.stringify(history.slice(-50)));
 }
 
 function setStatus(online, text) {
@@ -213,11 +234,23 @@ closeSettings.addEventListener("click", () => {
 });
 
 saveSettings.addEventListener("click", async () => {
-    backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
-    authToken = authTokenInput.value.trim();
+    const enteredBackendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+    const enteredAuthToken = authTokenInput.value.trim();
 
-    localStorage.setItem("jarvis_backend_url", backendUrl);
-    localStorage.setItem("jarvis_auth_token", authToken);
+    // Always preserve existing credentials unless the user enters a replacement.
+    // This prevents accidentally wiping the token when reopening Settings.
+    if (enteredBackendUrl) {
+        backendUrl = enteredBackendUrl;
+        writeStorage("jarvis_backend_url", backendUrl);
+    }
+
+    if (enteredAuthToken) {
+        authToken = enteredAuthToken;
+        writeStorage("jarvis_auth_token", authToken);
+    }
+
+    backendUrlInput.value = backendUrl;
+    authTokenInput.value = authToken;
 
     settingsPanel.classList.add("hidden");
     await checkBackend();
