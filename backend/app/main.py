@@ -198,11 +198,15 @@ def authenticate_request(authorization: Optional[str], request: Optional[Request
     if authorization.startswith("Bearer ") and SUPABASE_JWKS:
         token = authorization[7:].strip()
         try:
+            header = jwt.get_unverified_header(token)
+            alg = header.get("alg")
+            if alg not in {"ES256", "RS256", "HS256"}:
+                raise ValueError("Unsupported JWT algorithm")
             signing_key = SUPABASE_JWKS.get_signing_key_from_jwt(token)
             claims = jwt.decode(
                 token,
                 signing_key.key,
-                algorithms=[signing_key.algorithm_name],
+                algorithms=[alg],
                 audience="authenticated",
                 issuer=SUPABASE_ISSUER,
             )
