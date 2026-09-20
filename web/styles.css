@@ -26,3 +26,55 @@ body{min-height:100vh;overflow-x:hidden}button,input{font:inherit}button{cursor:
 @media(max-width:760px){.hud-top{height:60px;padding:0 12px}.system-label{display:none}.hud-status{font-size:7px}.hud-status i,.hud-status #topTime{display:none}.hud-main{padding:10px 10px 110px}.hero-hud{min-height:390px;display:flex;flex-direction:column;justify-content:center;gap:5px}.hero-meta{position:absolute;z-index:2}.hero-left{top:76px;left:14px;text-align:left;align-items:flex-start}.hero-right{top:76px;right:14px;align-items:flex-end;text-align:right}.hero-meta strong{font-size:16px}.hero-meta>span:not(.meta-label){font-size:7px}.mini-stats{display:none}.core-stage{height:310px;width:100%;margin-top:35px}.core-grid{width:250px;height:250px}.ring-a{width:210px;height:210px}.ring-b{width:175px;height:175px}.ring-c{width:240px;height:96px}.core-scan{width:260px}.context-actions{grid-template-columns:repeat(2,1fr)}.context-actions button{min-height:62px}.conversation-feed{max-height:35vh}.conversation-feed .message{max-width:88%;font-size:13px}.command-console{position:fixed;left:9px;right:9px;bottom:calc(7px + env(safe-area-inset-bottom));z-index:25;width:auto}.console-hint{display:none}.hud-footer{display:none}.side-menu-panel{top:auto;bottom:0;width:100%;height:auto;max-height:88vh;border-right:0;border-top:1px solid #1b5668;border-radius:18px 18px 0 0;transform:translateY(100%);padding:16px}.side-menu.open .side-menu-panel{transform:translateY(0)}.nav-list{grid-template-columns:1fr 1fr}.nav-divider{grid-column:1/-1}.menu-bottom{grid-template-columns:1fr 1fr;margin-top:10px}.menu-version{grid-column:1/-1}.memory-panel,.settings{padding:9px}.memory-card,.settings-card{padding:16px;border-radius:13px}.context-layer{margin-bottom:12px}}
 @media(max-width:430px){.brand-orbit{display:none}.logo{font-size:13px;letter-spacing:4px}.core-stage{height:285px}.hero-hud{min-height:365px}.core-core{width:104px;height:104px}.core-j{font-size:38px}.context-actions button small{display:none}.context-actions button{min-height:53px}.input-shell span{display:none}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+
+/* JARVIS mobile-first HUD redesign */
+:root{--bg:#07090f;--surface:rgba(255,255,255,.045);--line:rgba(205,218,245,.14);--text:#f7f8ff;--muted:#9aa3b6;--blue:#7bbcff;--purple:#a884ff;--pink:#ff9fca;--orange:#ffb184;--green:#45e6a7}
+body{background:#07090f;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+body:before{background:radial-gradient(circle at 15% 12%,rgba(91,137,221,.18),transparent 30%),radial-gradient(circle at 82% 38%,rgba(167,91,178,.14),transparent 31%),radial-gradient(circle at 70% 90%,rgba(255,137,91,.14),transparent 34%),linear-gradient(145deg,#060910,#0a0d16 52%,#11101a)}
+body:after{background:linear-gradient(120deg,transparent 20%,rgba(255,255,255,.025),transparent 65%)}
+.hud-top{height:76px;padding:12px 16px 8px;position:sticky;top:0;background:rgba(7,9,15,.56);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-bottom:1px solid rgba(255,255,255,.05)}
+.hud-brand{gap:9px}.brand-orbit{width:34px;height:34px;border-color:rgba(173,155,255,.45);box-shadow:0 0 22px rgba(128,122,255,.35)}.logo{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;font-size:17px;letter-spacing:6px;font-weight:600}.system-label{font-size:6px;letter-spacing:2px;color:#858da0}
+.icon-button{width:46px;height:46px;border-radius:15px;background:rgba(255,255,255,.045);border-color:var(--line)}
+.hud-status{height:38px;padding:0 11px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.045);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;font-size:9px;letter-spacing:.4px;color:#d8dce7}
+.hud-status i,.hud-status span:last-child{display:none}
+.hud-main{width:min(760px,100%);padding:28px 16px 34px}
+.hero-hud{display:flex;flex-direction:column;min-height:0;gap:0}
+.hero-left{order:0;width:100%;height:auto;text-align:center;align-items:center;padding:0 4px;display:block}
+.hero-left>*{display:none}
+.hero-left:before{content:"HOW CAN I HELP";display:block;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;font-size:clamp(38px,10vw,58px);line-height:.98;letter-spacing:-2.7px;font-weight:600;color:#f7f8ff;margin-top:8px}
+.hero-left:after{content:"YOU TODAY?";display:block;font-size:clamp(38px,10vw,58px);line-height:.98;letter-spacing:-2.7px;font-weight:600;background:linear-gradient(90deg,#fff,#86bcff 55%,#c69aff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-hud:before{content:"Ask anything, get things done.";order:1;color:#9aa3b6;font-size:15px;text-align:center;margin:13px 0 0}
+.core-stage{order:2;height:315px;margin-top:-4px}
+.core-grid{display:none}.core-ring{border-color:rgba(150,190,255,.25);box-shadow:0 0 45px rgba(90,140,255,.08),inset 0 0 35px rgba(90,140,255,.04)}
+.ring-a{width:235px;height:235px;border-top-color:#79b9ff;box-shadow:0 0 30px rgba(121,185,255,.18);animation:spin 18s linear infinite}
+.ring-b{width:195px;height:195px;border-right-color:#b193ff;border-left-color:transparent}
+.ring-c{width:275px;height:108px;border-color:rgba(255,169,201,.2)}
+.core-core{width:155px;height:155px;border-color:rgba(205,225,255,.65);background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.35),rgba(93,159,255,.18) 25%,rgba(104,75,170,.2) 52%,rgba(7,11,18,.96) 73%);box-shadow:0 0 45px rgba(109,156,255,.42),0 0 100px rgba(139,94,255,.18),inset 0 0 40px rgba(255,255,255,.08);overflow:hidden}
+.core-core:before,.core-core:after{content:"";position:absolute;width:220px;height:66px;border-radius:50%;border:2px solid rgba(142,202,255,.62);transform:rotate(28deg);animation:coreOrbit 7s linear infinite}.core-core:after{border-color:rgba(255,174,208,.55);transform:rotate(-30deg);animation-duration:9s}
+.core-j{font-size:58px;z-index:2;text-shadow:0 0 28px #91c7ff}.core-state{z-index:2;font-size:7px;color:#c8dcff}
+@keyframes coreOrbit{to{transform:rotate(388deg)}}
+.hero-right{display:none}
+.conversation-feed{order:4;width:100%;max-height:360px;margin:12px auto 0;padding:0}
+.context-layer{order:3;width:100%;margin:0 auto 16px}
+.context-head{display:none}
+.context-actions{grid-template-columns:repeat(4,1fr);gap:7px;margin:0}
+.context-actions button{min-height:72px;padding:10px 6px;text-align:center;display:block;border:1px solid var(--line);border-radius:17px;background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.context-actions button:hover{transform:translateY(-2px);border-color:rgba(130,180,255,.4);background:rgba(255,255,255,.07)}
+.context-actions span{display:grid;place-items:center;width:30px;height:30px;margin:0 auto 7px;border-radius:10px;background:rgba(130,172,255,.09);border:1px solid rgba(144,180,255,.14);font-size:9px;color:#a9c9ff}
+.context-actions b{display:block;font-size:9px;letter-spacing:.7px}.context-actions small{display:block;font-size:7px;color:#788297;margin-top:4px}
+.command-console{order:3;width:100%;margin:0 auto;border:1px solid rgba(130,178,255,.32);border-radius:23px;background:rgba(9,13,21,.78);box-shadow:0 0 42px rgba(75,129,255,.1),inset 0 1px 0 rgba(255,255,255,.04);backdrop-filter:blur(18px);padding:9px 10px 8px}
+.command-top{padding:2px 9px 7px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;letter-spacing:1px}.command-top span{color:#7d8799}.command-top b{color:#91b8ff}
+.input-area{gap:8px}.input-shell{border-radius:17px;background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.08)}.input-shell:before{content:"＋";display:grid;place-items:center;width:40px;color:#dce3f4;font-size:22px}.input-shell input{height:48px;font-size:15px}.input-shell span{display:none}.send-control{width:48px;height:48px;border:0;border-radius:50%;background:#f4f6ff;color:#10131b;font-size:22px;box-shadow:0 4px 20px rgba(255,255,255,.12)}
+.console-hint{font-size:6px;letter-spacing:2px;color:#606a7d;padding-top:7px}
+.proactive-card,.hud-footer,.hidden-data{display:none!important}
+.side-menu{z-index:50}.side-menu-backdrop{background:rgba(0,0,0,.62);backdrop-filter:blur(6px)}.side-menu-panel{width:min(330px,88vw);background:rgba(10,13,21,.97);border-right:1px solid rgba(255,255,255,.1)}
+.nav-item{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;border-radius:14px;padding:13px}.nav-item.active,.nav-item:hover{background:rgba(122,145,255,.09);border-color:rgba(137,159,255,.14)}
+.memory-panel,.settings{z-index:60}
+.memory-card,.settings-card{background:rgba(12,15,24,.97);border-color:rgba(255,255,255,.13);border-radius:24px}
+.recent-card{margin:16px 0 0;padding:16px;border:1px solid var(--line);border-radius:22px;background:rgba(13,17,26,.62);backdrop-filter:blur(16px)}
+.recent-card:has(.conversation-feed:not(:empty)) .recent-empty{display:none}
+.recent-head h2{font-size:18px}.recent-head button{font-size:11px}
+.recent-empty{padding:22px 4px;text-align:center;color:#697286;font-size:12px}
+@media(max-width:520px){.hud-main{padding:25px 14px 32px}.hero-left:before,.hero-left:after{font-size:43px}.core-stage{height:285px}.core-core{width:150px;height:150px}.ring-a{width:225px;height:225px}.ring-b{width:185px;height:185px}.ring-c{width:255px;height:100px}.context-actions{gap:6px}.context-actions button{padding:9px 4px;border-radius:15px}.context-actions small{font-size:6.5px}.context-actions b{font-size:8px}.command-console{border-radius:20px}}
+@media(min-width:800px){.hud-main{padding-top:52px}.hero-left:before,.hero-left:after{font-size:58px}.core-stage{height:350px}.context-actions,.command-console,.recent-card{max-width:680px;margin-left:auto;margin-right:auto}}
