@@ -13,8 +13,6 @@ const settingsPanel = document.getElementById("settingsPanel");
 const closeSettings = document.getElementById("closeSettings");
 const saveSettings = document.getElementById("saveSettings");
 const backendUrlInput = document.getElementById("backendUrl");
-const authTokenInput = document.getElementById("authToken");
-
 const sideMenu = document.getElementById("sideMenu");
 const menuButton = document.getElementById("menuButton");
 const closeMenu = document.getElementById("closeMenu");
@@ -33,7 +31,6 @@ const closeSystemStatus = document.getElementById("closeSystemStatus");
 const menuStatusBadge = document.getElementById("menuStatusBadge");
 
 let backendUrl = "";
-let authToken = "";
 let busy = false;
 let recognition = null;
 let currentAudio = null;
@@ -143,7 +140,6 @@ async function syncOwnerAccess() {
     try {
         const headers = {};
         if (authSession?.access_token) headers.Authorization = "Bearer " + authSession.access_token;
-        else if (authToken) headers.Authorization = "Bearer " + authToken;
         const response = await fetchWithTimeout(backendUrl + "/api/me", {headers, cache:"no-store"}, 8000);
         if (!response.ok) return false;
         const data = await response.json();
@@ -172,9 +168,8 @@ async function signInProvider(provider) {
 }
 
 backendUrl = (readStorage("jarvis_backend_url") || "https://jarvis-ai-uhe3.onrender.com").trim().replace(/\/$/, "");
-authToken = readStorage("jarvis_auth_token");
 backendUrlInput.value = backendUrl;
-authTokenInput.value = authToken;
+
 const supabaseUrlInput = document.getElementById("supabaseUrl");
 const supabaseKeyInput = document.getElementById("supabaseKey");
 const accountButton = document.getElementById("accountButton");
@@ -577,11 +572,9 @@ signOutButton?.addEventListener("click", async () => {
 });
 saveSettings?.addEventListener("click", async () => {
     const enteredBackendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
-    const enteredAuthToken = authTokenInput.value.trim();
     const enteredSupabaseUrl = supabaseUrlInput?.value.trim().replace(/\/$/, "") || "";
     const enteredSupabaseKey = supabaseKeyInput?.value.trim() || "";
     if (enteredBackendUrl) { backendUrl = enteredBackendUrl; writeStorage("jarvis_backend_url", backendUrl); }
-    if (enteredAuthToken) { authToken = enteredAuthToken; writeStorage("jarvis_auth_token", authToken); }
     if (enteredSupabaseUrl) writeStorage("jarvis_supabase_url", enteredSupabaseUrl);
     if (enteredSupabaseKey) writeStorage("jarvis_supabase_key", enteredSupabaseKey);
     backendUrlInput.value = backendUrl;
