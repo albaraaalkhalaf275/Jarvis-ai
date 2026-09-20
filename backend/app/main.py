@@ -512,7 +512,7 @@ async def voice_ws(websocket: WebSocket):
             pass
 
 @app.get("/api/me")
-def current_user(authorization: Optional[str] = Header(default=None), request: Request = None):
+def current_user(request: Request, authorization: Optional[str] = Header(default=None)):
     user = authenticate_request(authorization, request)
     return {
         "authenticated": not user.get("guest", False),
