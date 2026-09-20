@@ -573,7 +573,6 @@ saveSettings?.addEventListener("click", async () => {
     const enteredBackendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
     if (enteredBackendUrl) { backendUrl = enteredBackendUrl; writeStorage("jarvis_backend_url", backendUrl); }
     backendUrlInput.value = backendUrl;
-    authTokenInput.value = authToken;
     settingsPanel.classList.add("hidden");
     await initAuth();
     await checkBackend();
