@@ -20,7 +20,7 @@ app.add_middleware(
 )
 
 API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 AUTH_TOKEN = os.getenv("JARVIS_AUTH_TOKEN", "").strip()
 
 SYSTEM = """
