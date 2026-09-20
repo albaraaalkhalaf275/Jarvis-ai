@@ -62,7 +62,7 @@
         <span id="subtitle">CONNECTING TO JARVIS...</span>
         <div class="mini-stats">
           <span><b id="connectionValue">OFFLINE</b> LINK</span>
-          <span><b id="voiceValue">OFFLINE</b> VOICE</span>
+          <span><b id="voiceValue">PAUSED</b> VOICE</span>
           <span><b id="memoryCount">0</b> MEMORY</span>
         </div>
       </div>
@@ -96,14 +96,13 @@
         <b id="commandState">READY</b>
       </div>
       <form id="chatForm" class="input-area">
-        <button type="button" id="micButton" class="round-control" aria-label="Voice input">◉</button>
         <div class="input-shell">
           <input id="messageInput" type="text" autocomplete="off" placeholder="Talk to JARVIS...">
           <span>RETURN ↵</span>
         </div>
         <button type="submit" id="sendButton" class="send-control" aria-label="Send command">↗</button>
       </form>
-      <div class="console-hint">VOICE OR TEXT • JARVIS IS LISTENING</div>
+      <div class="console-hint">TEXT COMMANDS • FAST RESPONSE MODE</div>
     </section>
 
     <section class="hidden-data" aria-hidden="true">
@@ -134,7 +133,7 @@
         <button class="nav-item active" data-command="Return to the main dashboard."><span>01</span><b>DASHBOARD</b><em>HOME</em></button>
         <button class="nav-item" data-command="Tell me what you can currently do, including your available capabilities."><span>02</span><b>INTELLIGENCE</b><em>CORE</em></button>
         <button id="systemStatusNav" class="nav-item" type="button"><span>03</span><b>SYSTEM STATUS</b><em>LIVE</em></button>
-        <button class="nav-item" data-command="Tell me about the current voice system and voice capabilities."><span>04</span><b>VOICE</b><em>AUDIO</em></button>
+        <button class="nav-item" data-command="Voice features are currently paused while JARVIS is optimized for fast text responses."><span>04</span><b>VOICE</b><em>PAUSED</em></button>
         <button id="memoryNav" class="nav-item" data-memory-nav="true"><span>05</span><b>MEMORY</b><em id="memoryBadge">0</em></button>
         <div class="nav-divider"></div>
         <button class="nav-item" data-command="Show me the current calendar capabilities and what is connected."><span>06</span><b>CALENDAR</b><em>READY</em></button>
@@ -189,7 +188,7 @@
     <div class="settings-card">
       <div class="settings-top"><div><span class="section-kicker">OWNER CONTROL</span><h2>JARVIS Configuration</h2></div><button id="closeSettings" class="close-button">×</button></div>
       <label>Backend URL</label><input id="backendUrl" type="url" placeholder="https://your-backend-url.com">
-      <p>Gemini and Fish Audio credentials stay server-side. Connection settings are stored locally on this device.</p>
+      <p>Gemini credentials stay server-side. Voice features are temporarily paused and will be reintroduced later.</p>
       <div class="settings-actions"><button id="saveSettings">Save Configuration</button></div>
     </div>
   </div>
