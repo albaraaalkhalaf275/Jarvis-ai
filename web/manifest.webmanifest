@@ -1,10 +1,11 @@
 {
-  "name":"JARVIS",
+  "name":"JARVIS AI Command Center",
   "short_name":"JARVIS",
   "start_url":"./",
   "display":"standalone",
-  "background_color":"#05070b",
-  "theme_color":"#05070b",
-  "description":"JARVIS personal AI assistant",
+  "background_color":"#03070d",
+  "theme_color":"#03070d",
+  "description":"JARVIS personal AI command center",
+  "orientation":"portrait-primary",
   "icons":[]
 }
