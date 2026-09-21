@@ -3,56 +3,149 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#05070b">
-<meta name="description" content="JARVIS personal AI assistant">
+<meta name="theme-color" content="#03070d">
+<meta name="description" content="JARVIS personal AI command center">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="styles.css">
-<title>JARVIS</title>
+<title>JARVIS | AI Command Center</title>
 </head>
 <body>
-<div class="app">
-<header>
-  <button id="menuButton" class="icon" aria-label="Open menu">☰</button>
-  <div class="brand"><span class="orb">J</span><div><strong>JARVIS</strong><small>PERSONAL AI</small></div></div>
-  <div class="status"><span id="statusDot"></span><span id="statusText">CONNECTING</span></div>
-</header>
+<div class="app-shell">
+  <aside id="sidebar" class="sidebar" aria-label="JARVIS navigation">
+    <div class="side-brand">
+      <div class="brand-core">J</div>
+      <div><strong>JARVIS</strong><span>AI COMMAND CENTER</span></div>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" data-view="chat" title="Open chat"><span>◈</span>Chat</button>
+      <button class="nav-btn" data-view="dashboard" title="View system dashboard"><span>◉</span>Dashboard</button>
+      <button class="nav-btn" data-view="tools" title="Open tools"><span>⌘</span>Tools</button>
+      <button class="nav-btn" data-view="memory" title="Manage saved memories"><span>◇</span>Memory</button>
+      <button class="nav-btn" data-view="tasks" title="Manage tasks and schedules"><span>□</span>Tasks</button>
+      <button class="nav-btn" data-view="files" title="Upload and analyze files"><span>▱</span>Files</button>
+      <button class="nav-btn" data-view="settings" title="Configure JARVIS"><span>⚙</span>Settings</button>
+    </nav>
+    <div class="side-status">
+      <span class="live-dot" id="sideDot"></span>
+      <div><b id="sideStatus">CONNECTING</b><small id="sideModel">MODEL UNKNOWN</small></div>
+    </div>
+  </aside>
 
-<main>
-<section class="core">
-  <div class="ring ring1"></div><div class="ring ring2"></div><div class="ring ring3"></div>
-  <div class="core-center"><b>J</b><span id="coreState">STANDBY</span></div>
-</section>
+  <div id="backdrop" class="backdrop"></div>
 
-<section class="welcome">
-  <p>JARVIS CORE</p>
-  <h1>How can I help?</h1>
-  <span id="modelText">Checking connection...</span>
-</section>
+  <section class="main">
+    <header class="topbar">
+      <button id="menuButton" class="icon-btn" title="Open navigation" aria-label="Open navigation">☰</button>
+      <div class="top-title"><span id="viewLabel">CHAT</span><i></i><small id="systemTime">--:--</small></div>
+      <button id="statusButton" class="status-chip" title="Run a connection check"><span id="statusDot" class="live-dot"></span><span id="statusText">CONNECTING</span></button>
+    </header>
 
-<section id="messages" class="messages" aria-live="polite"></section>
+    <main class="content">
+      <section id="view-chat" class="view active">
+        <div class="chat-header">
+          <div>
+            <p>JARVIS CORE</p>
+            <h1>How can I assist?</h1>
+            <span>Natural-language control. Tools execute through the secure backend.</span>
+          </div>
+          <button id="newChatButton" class="secondary-btn" title="Start a new conversation">＋ New chat</button>
+        </div>
 
-<form id="chatForm" class="composer">
-  <input id="messageInput" autocomplete="off" placeholder="Talk to JARVIS..." maxlength="12000">
-  <button id="sendButton" aria-label="Send">➜</button>
-</form>
-<p class="hint">TEXT MODE • SECURE SERVER CONNECTION</p>
-</main>
+        <div class="core-hud">
+          <div class="scan-ring one"></div>
+          <div class="scan-ring two"></div>
+          <div class="scan-ring three"></div>
+          <div class="core-node"><b>J</b><span id="coreState">STANDBY</span></div>
+        </div>
 
-<aside id="menu" class="menu" aria-hidden="true">
-  <div class="menu-backdrop" id="menuBackdrop"></div>
-  <div class="menu-card">
-    <button id="closeMenu" class="close">×</button>
-    <p>JARVIS</p>
-    <h2>Command Deck</h2>
-    <button class="menu-item" id="newChat">＋ New Chat</button>
-    <button class="menu-item" id="clearChat">Clear Current Chat</button>
-    <div class="menu-info">
-      <span>BACKEND</span><b id="backendInfo">CHECKING</b>
-      <span>MODEL</span><b id="menuModel">--</b>
+        <div class="quick-row">
+          <button class="quick-btn" data-action="search">Search the web</button>
+          <button class="quick-btn" data-action="calculator">Calculator</button>
+          <button class="quick-btn" data-action="calendar">Calendar</button>
+          <button class="quick-btn" data-action="summarize">Summarize</button>
+          <button class="quick-btn" data-action="translate">Translate</button>
+          <button class="quick-btn" data-action="analyze">Analyze</button>
+        </div>
+
+        <div id="messages" class="messages" aria-live="polite"></div>
+
+        <form id="chatForm" class="composer">
+          <button type="button" id="attachButton" class="composer-icon" title="Attach a file" aria-label="Attach file">＋</button>
+          <input id="messageInput" autocomplete="off" placeholder="Command JARVIS..." maxlength="12000">
+          <button type="submit" id="sendButton" class="send-btn" title="Send message" aria-label="Send message">➜</button>
+          <input id="fileInput" type="file" hidden multiple>
+        </form>
+        <div id="attachmentBar" class="attachment-bar hidden"></div>
+      </section>
+
+      <section id="view-dashboard" class="view">
+        <div class="page-heading"><p>SYSTEM</p><h2>Dashboard</h2><span>Live overview of the JARVIS runtime.</span></div>
+        <div class="metric-grid">
+          <article class="metric-card"><span>CORE</span><strong id="dashCore">ONLINE</strong><small>AI request layer</small></article>
+          <article class="metric-card"><span>MODEL</span><strong id="dashModel">--</strong><small>OpenAI Responses</small></article>
+          <article class="metric-card"><span>TOOLS</span><strong id="dashTools">--</strong><small>Registered capabilities</small></article>
+          <article class="metric-card"><span>SESSION</span><strong id="dashSession">LOCAL</strong><small>Conversation context</small></article>
+        </div>
+        <div class="panel two-col">
+          <div><h3>Quick control</h3><button class="wide-btn" data-action="new-chat">Start a fresh conversation</button><button class="wide-btn" data-view="tools">Open tool center</button></div>
+          <div><h3>Runtime</h3><div class="runtime-lines"><div><span>Backend</span><b id="dashBackend">Checking</b></div><div><span>OpenAI key</span><b id="dashKey">Checking</b></div><div><span>Last check</span><b id="dashChecked">--</b></div></div></div>
+        </div>
+      </section>
+
+      <section id="view-tools" class="view">
+        <div class="page-heading"><p>CAPABILITIES</p><h2>Tool Center</h2><span>Every visible control maps to an actual JARVIS action.</span></div>
+        <div class="tool-grid">
+          <button class="tool-card" data-action="search"><strong>⌕</strong><b>Web Search</b><span>Live web-grounded answers</span></button>
+          <button class="tool-card" data-action="calculator"><strong>∑</strong><b>Calculator</b><span>Safe mathematical evaluation</span></button>
+          <button class="tool-card" data-action="calendar"><strong>□</strong><b>Calendar</b><span>Create local scheduled tasks</span></button>
+          <button class="tool-card" data-action="summarize"><strong>≡</strong><b>Summarize</b><span>Compress text into key points</span></button>
+          <button class="tool-card" data-action="translate"><strong>文</strong><b>Translate</b><span>Translate text through JARVIS</span></button>
+          <button class="tool-card" data-action="analyze"><strong>◉</strong><b>Analyze</b><span>Analyze attached documents</span></button>
+        </div>
+      </section>
+
+      <section id="view-memory" class="view">
+        <div class="page-heading"><p>CONTEXT</p><h2>Memory</h2><span>Save information you want JARVIS to remember for this session.</span></div>
+        <form id="memoryForm" class="inline-form"><input id="memoryInput" maxlength="500" placeholder="e.g. My preferred name is ..."><button class="primary-btn">Save memory</button></form>
+        <div id="memoryList" class="list"></div>
+      </section>
+
+      <section id="view-tasks" class="view">
+        <div class="page-heading"><p>EXECUTION</p><h2>Tasks & Schedule</h2><span>Create, complete, and remove local tasks.</span></div>
+        <form id="taskForm" class="inline-form task-form"><input id="taskTitle" maxlength="180" placeholder="Task title"><input id="taskDue" type="datetime-local"><button class="primary-btn">Create task</button></form>
+        <div id="taskList" class="list"></div>
+      </section>
+
+      <section id="view-files" class="view">
+        <div class="page-heading"><p>INPUT</p><h2>Files</h2><span>Upload a document and ask JARVIS to analyze it.</span></div>
+        <div class="upload-panel">
+          <input id="pageFileInput" type="file" multiple>
+          <div><b>Supported inputs</b><span>PDF, documents, spreadsheets, text, and other files accepted by the connected model.</span></div>
+          <button id="analyzePageFile" class="primary-btn" type="button">Analyze selected file</button>
+        </div>
+        <div id="fileList" class="list"></div>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="page-heading"><p>CONTROL</p><h2>Settings</h2><span>Local interface and connection controls.</span></div>
+        <div class="settings-grid">
+          <div class="panel"><h3>Connection</h3><label>Backend URL<input id="backendUrlInput" value=""></label><button id="saveBackend" class="wide-btn">Save backend URL</button><button id="testConnection" class="wide-btn">Test connection</button></div>
+          <div class="panel"><h3>Interface</h3><label class="toggle-line"><span>Compact HUD</span><input id="compactToggle" type="checkbox"></label><label class="toggle-line"><span>Reduce animation</span><input id="motionToggle" type="checkbox"></label><button id="resetData" class="danger-btn">Reset local JARVIS data</button></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <button id="modalClose" class="icon-btn modal-close" title="Close" aria-label="Close">×</button>
+      <p id="modalKicker">JARVIS TOOL</p>
+      <h3 id="modalTitle">Tool</h3>
+      <div id="modalBody"></div>
     </div>
   </div>
-</aside>
 </div>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
