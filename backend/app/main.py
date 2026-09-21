@@ -12,15 +12,12 @@ import httpx
 import jwt
 from jwt import PyJWKClient
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
-from twilio.rest import Client as TwilioClient
-from twilio.request_validator import RequestValidator
-from twilio.twiml.voice_response import VoiceResponse
 
 load_dotenv()
 
@@ -31,16 +28,6 @@ MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6").strip()
 OPENAI_URL = "https://api.openai.com/v1/responses"
 AUTH_TOKEN = os.getenv("JARVIS_AUTH_TOKEN", "").strip()
 
-FISH_AUDIO_API_KEY = os.getenv("FISH_AUDIO_API_KEY", "").strip()
-FISH_AUDIO_VOICE_ID = os.getenv(
-    "FISH_AUDIO_VOICE_ID",
-    "612b878b113047d9a770c069c8b4fdfe",
-).strip()
-FISH_AUDIO_MODEL = os.getenv("FISH_AUDIO_MODEL", "s2.1-pro").strip()
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
-TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "").strip()
-JARVIS_OWNER_PHONE = os.getenv("JARVIS_OWNER_PHONE", "").strip()
 OWNER_EMAIL = os.getenv("JARVIS_OWNER_EMAIL", "").strip().lower()
 OWNER_USER_ID = os.getenv("JARVIS_OWNER_USER_ID", "").strip()
 OWNER_GITHUB_LOGIN = os.getenv("JARVIS_OWNER_GITHUB_LOGIN", "").strip().lower()
@@ -389,157 +376,6 @@ def local_fast_path(message: str) -> Optional[str]:
     return None
 
 
-def prepare_jarvis_speech(text: str) -> str:
-    """Prepare concise, controlled delivery for the JARVIS voice."""
-    text = re.sub(r"\\s+", " ", text).strip()
-    if not text:
-        return text
-
-    # Keep spoken output clean. Avoid reading markdown formatting aloud.
-    text = re.sub(r"```[\\s\\S]*?```", "", text)
-    text = re.sub(r"[*_`#]+", "", text)
-    text = re.sub(r"\\[([^\\]]+)\\]\\([^\\)]+\\)", r"\\1", text)
-    text = re.sub(r"\\s{2,}", " ", text).strip()
-
-    # Give short confirmations and status responses a deliberate opening.
-    if len(text) <= 140 and not text.startswith("["):
-        return f"[emphasis]{text}"
-
-    return text
-
-
-async def fish_tts(text: str) -> bytes:
-    if not FISH_AUDIO_API_KEY:
-        raise HTTPException(status_code=503, detail="Fish Audio is not configured")
-
-    headers = {
-        "Authorization": f"Bearer {FISH_AUDIO_API_KEY}",
-        "Content-Type": "application/json",
-        "model": FISH_AUDIO_MODEL,
-    }
-    payload = {
-        "text": prepare_jarvis_speech(text),
-        "reference_id": FISH_AUDIO_VOICE_ID,
-        "format": "mp3",
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            result = await client.post(
-                "https://api.fish.audio/v1/tts",
-                headers=headers,
-                json=payload,
-            )
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Fish Audio connection failed: {exc}")
-
-    if result.status_code != 200:
-        detail = result.text[:500] or "Fish Audio synthesis failed"
-        raise HTTPException(status_code=502, detail=detail)
-
-    return result.content
-
-
-@app.post("/api/voice/twiml")
-async def voice_twiml(request: Request):
-    if not TWILIO_AUTH_TOKEN:
-        raise HTTPException(status_code=503, detail="Twilio voice is not configured")
-    form = await request.form()
-    signature = request.headers.get("X-Twilio-Signature", "")
-    validator = RequestValidator(TWILIO_AUTH_TOKEN)
-    if not validator.validate(str(request.url), dict(form), signature):
-        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
-    response = VoiceResponse()
-    connect = response.connect()
-    connect.conversation_relay(
-        url=f"wss://{request.url.hostname}/api/voice/ws",
-        welcome_greeting="JARVIS is online. How can I assist you?"
-    )
-    return Response(content=str(response), media_type="application/xml")
-
-
-@app.post("/api/voice/call")
-async def voice_call(request: Request, authorization: Optional[str] = Header(default=None)):
-    require_owner(authorization, request)
-    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER or not JARVIS_OWNER_PHONE:
-        raise HTTPException(status_code=503, detail="Twilio voice is not configured")
-    client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    try:
-        call = client.calls.create(
-            to=JARVIS_OWNER_PHONE,
-            from_=TWILIO_PHONE_NUMBER,
-            url=f"https://{request.url.hostname}/api/voice/twiml",
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Twilio call failed: {exc}")
-    return {"ok": True, "call_sid": call.sid, "status": call.status}
-
-
-@app.websocket("/api/voice/ws")
-async def voice_ws(websocket: WebSocket):
-    if not TWILIO_AUTH_TOKEN:
-        await websocket.close(code=1008, reason="Twilio voice is not configured")
-        return
-    signature = websocket.headers.get("x-twilio-signature", "")
-    validator = RequestValidator(TWILIO_AUTH_TOKEN)
-    if not validator.validate(str(websocket.url), dict(websocket.query_params), signature):
-        await websocket.close(code=1008, reason="Invalid Twilio signature")
-        return
-    await websocket.accept()
-    if not OPENAI_API_KEY:
-        await websocket.close(code=1011, reason="OpenAI is not configured")
-        return
-
-    history = []
-    try:
-        while True:
-            message = await websocket.receive_json()
-            if message.get("type") != "prompt":
-                continue
-            user_text = str(message.get("voicePrompt", "")).strip()
-            if not user_text:
-                continue
-
-            history.append({"role": "user", "text": user_text})
-            input_items = [
-                {"role": item["role"], "content": item["text"]}
-                for item in history[-20:]
-            ]
-            payload = {
-                "model": MODEL,
-                "instructions": SYSTEM,
-                "input": input_items,
-                "reasoning": {"effort": "minimal"},
-                "max_output_tokens": 400,
-                "store": False,
-            }
-            try:
-                result = httpx.post(
-                    OPENAI_URL,
-                    headers={
-                        "Authorization": f"Bearer {OPENAI_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                    timeout=60,
-                )
-                result.raise_for_status()
-                data = result.json()
-                reply = extract_openai_text(data) or "I am here."
-            except Exception:
-                await websocket.close(code=1011, reason="JARVIS voice session failed")
-                return
-
-            history.append({"role": "assistant", "text": reply})
-            await websocket.send_json({"type": "text", "token": reply, "last": True})
-    except WebSocketDisconnect:
-        return
-    except Exception:
-        try:
-            await websocket.close(code=1011, reason="JARVIS voice session failed")
-        except Exception:
-            pass
-
 @app.get("/api/me")
 def current_user(request: Request, authorization: Optional[str] = Header(default=None)):
     user = authenticate_request(authorization, request)
@@ -563,8 +399,7 @@ def health():
     return {
         "ok": True,
         "openai_configured": bool(OPENAI_API_KEY),
-        "tts_configured": False,
-        "model": MODEL,
+            "model": MODEL,
         "sessions": len(SESSIONS),
     }
 
@@ -576,8 +411,7 @@ def status(authorization: Optional[str] = Header(default=None)):
         "ok": True,
         "service": "JARVIS",
         "openai_configured": bool(OPENAI_API_KEY),
-        "tts_configured": False,
-        "model": MODEL,
+            "model": MODEL,
         "active_sessions": len(SESSIONS),
         "capabilities": [
             "chat",
@@ -589,13 +423,6 @@ def status(authorization: Optional[str] = Header(default=None)):
     }
 
 
-@app.post("/api/speak")
-async def speak(req: SpeakRequest, request: Request, authorization: Optional[str] = Header(default=None)):
-    check_auth(authorization, request)
-    audio = await fish_tts(req.text)
-    return Response(content=audio, media_type="audio/mpeg")
-
-    
 def openai_input(history: list[dict], message: str) -> list[dict]:
     items = []
     for item in history[-20:]:
