@@ -13,8 +13,8 @@ import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import StreamingResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 APP_NAME = "JARVIS"
@@ -26,15 +26,11 @@ FRONTEND_ORIGINS = [x.strip() for x in os.getenv("FRONTEND_ORIGINS", "https://ja
 ALLOWED_HOSTS = [x.strip() for x in os.getenv("ALLOWED_HOSTS", "*.onrender.com,localhost,127.0.0.1").split(",") if x.strip()]
 
 SYSTEM_PROMPT = """You are JARVIS, a capable personal AI assistant.
-
 Be accurate, direct, useful, and honest about uncertainty.
-Answer the user's actual request first.
-Use conversation context when supplied.
-Do not invent facts, actions, sources, tool results, or capabilities.
-For technical work, prioritize correctness, security, reliability, and maintainability.
-If something cannot be done, say so clearly and provide the closest useful alternative.
-Never claim an external action happened unless a tool actually performed it.
-Require confirmation before destructive, financial, privacy-sensitive, account-changing, or external communication actions.
+Answer the user's request first. Use supplied conversation context.
+Never invent facts, actions, sources, tool results, or capabilities.
+You have tools. Use them when they materially improve accuracy.
+For important external, destructive, financial, privacy-sensitive, account-changing, or communication actions, require confirmation. Never pretend a tool action happened.
 """
 
 app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None)
@@ -69,15 +65,9 @@ class ChatResponse(BaseModel):
 
 def authenticate(request: Request, authorization: Optional[str]) -> None:
     if authorization:
-        if not authorization.startswith("Bearer "):
+        if not authorization.startswith("Bearer ") or not authorization[7:].strip():
             raise HTTPException(401, "Invalid authorization header")
-        token = authorization[7:].strip()
-        if not token:
-            raise HTTPException(401, "Invalid authorization token")
-        # Authentication providers will be added in a later phase.
-        # For now, any explicitly supplied bearer token is rejected rather than trusted.
         raise HTTPException(401, "Authentication is not configured in this foundation build")
-
     if not ALLOW_GUEST:
         raise HTTPException(401, "Authentication required")
 
@@ -101,14 +91,7 @@ def save_session(session_id: Optional[str], history: list[dict]) -> None:
         SESSIONS[session_id] = history[-MAX_SESSION_MESSAGES:]
 
 
-_ALLOWED_BINOPS = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.Div: operator.truediv,
-    ast.Pow: operator.pow,
-    ast.Mod: operator.mod,
-}
+_ALLOWED_BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv, ast.Pow: operator.pow, ast.Mod: operator.mod}
 _ALLOWED_UNARY = {ast.UAdd: operator.pos, ast.USub: operator.neg}
 
 
@@ -122,9 +105,7 @@ def safe_calculate(expression: str) -> Optional[str]:
         def evaluate(node):
             if isinstance(node, ast.Expression):
                 return evaluate(node.body)
-            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-                if not math.isfinite(node.value):
-                    raise ValueError
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and math.isfinite(node.value):
                 return node.value
             if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_BINOPS:
                 left, right = evaluate(node.left), evaluate(node.right)
@@ -154,10 +135,6 @@ def local_response(message: str) -> Optional[str]:
         return "Hello. JARVIS is online and ready."
     if text in {"who are you", "what are you", "what is jarvis"}:
         return "I am JARVIS, your personal AI assistant."
-    if re.fullmatch(r"(calculate|compute)\s+.+", text):
-        result = safe_calculate(re.sub(r"^(calculate|compute)\s+", "", message.strip(), flags=re.I))
-        if result is not None:
-            return result
     return None
 
 
@@ -172,14 +149,67 @@ def build_input(history: list[dict], message: str) -> list[dict]:
     return items
 
 
-def openai_payload(history: list[dict], message: str) -> dict:
-    return {
-        "model": OPENAI_MODEL,
-        "instructions": SYSTEM_PROMPT,
-        "input": build_input(history, message),
-        "max_output_tokens": 1200,
-        "store": False,
-    }
+TOOLS = [
+    {
+        "type": "function",
+        "name": "calculator",
+        "description": "Evaluate a mathematical expression safely.",
+        "parameters": {
+            "type": "object",
+            "properties": {"expression": {"type": "string"}},
+            "required": ["expression"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+    {
+        "type": "function",
+        "name": "current_time",
+        "description": "Get the current local time of the server.",
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        "strict": True,
+    },
+]
+
+
+def run_tool(name: str, arguments: str) -> str:
+    try:
+        args = json.loads(arguments or "{}")
+    except json.JSONDecodeError:
+        return "Tool arguments were invalid."
+
+    if name == "calculator":
+        result = safe_calculate(str(args.get("expression", "")))
+        return result if result is not None else "Invalid mathematical expression."
+
+    if name == "current_time":
+        return datetime.now().astimezone().strftime("%A, %B %d, %Y at %I:%M:%S %p %Z")
+
+    return f"Unknown tool: {name}"
+
+
+def openai_request(payload: dict) -> dict:
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+
+    try:
+        response = httpx.post(
+            OPENAI_URL,
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=90,
+        )
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"OpenAI connection failed: {exc}") from exc
+
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("error", {}).get("message", response.text[:600])
+        except Exception:
+            detail = response.text[:600]
+        raise RuntimeError(f"OpenAI request failed ({response.status_code}): {detail}")
+
+    return response.json()
 
 
 def extract_text(data: dict) -> str:
@@ -195,28 +225,37 @@ def extract_text(data: dict) -> str:
     return "".join(parts).strip()
 
 
-def generate(history: list[dict], message: str) -> str:
-    try:
-        response = httpx.post(
-            OPENAI_URL,
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-            json=openai_payload(history, message),
-            timeout=90,
-        )
-    except httpx.HTTPError as exc:
-        raise RuntimeError(f"OpenAI connection failed: {exc}") from exc
+def run_agent(history: list[dict], message: str) -> str:
+    input_items = build_input(history, message)
+    payload = {
+        "model": OPENAI_MODEL,
+        "instructions": SYSTEM_PROMPT,
+        "input": input_items,
+        "tools": TOOLS,
+        "max_output_tokens": 1600,
+        "store": False,
+    }
 
-    if response.status_code >= 400:
-        try:
-            detail = response.json().get("error", {}).get("message", response.text[:600])
-        except Exception:
-            detail = response.text[:600]
-        raise RuntimeError(f"OpenAI request failed ({response.status_code}): {detail}")
+    for _ in range(6):
+        data = openai_request(payload)
+        tool_calls = [item for item in data.get("output", []) if item.get("type") == "function_call"]
+        if not tool_calls:
+            text = extract_text(data)
+            if text:
+                return text
+            raise RuntimeError("OpenAI returned an empty response.")
 
-    text = extract_text(response.json())
-    if not text:
-        raise RuntimeError("OpenAI returned an empty response")
-    return text
+        input_items.extend(data.get("output", []))
+        for call in tool_calls:
+            result = run_tool(call.get("name", ""), call.get("arguments", "{}"))
+            input_items.append({
+                "type": "function_call_output",
+                "call_id": call.get("call_id"),
+                "output": result,
+            })
+        payload["input"] = input_items
+
+    raise RuntimeError("JARVIS reached the maximum tool-call steps.")
 
 
 @app.middleware("http")
@@ -229,23 +268,25 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+@app.get("/")
+def root():
+    return {"service": APP_NAME, "message": "JARVIS backend is online."}
+
+
 @app.get("/health")
 def health():
-    return {"ok": True, "service": APP_NAME, "model": OPENAI_MODEL, "openai_configured": bool(OPENAI_API_KEY), "sessions": len(SESSIONS)}
+    return {"ok": True, "service": APP_NAME, "model": OPENAI_MODEL, "openai_configured": bool(OPENAI_API_KEY), "tools": len(TOOLS), "sessions": len(SESSIONS)}
 
 
 @app.get("/api/status")
 def status(request: Request, authorization: Optional[str] = Header(default=None)):
     authenticate(request, authorization)
-    return {"ok": True, "service": APP_NAME, "model": OPENAI_MODEL, "openai_configured": bool(OPENAI_API_KEY), "sessions": len(SESSIONS)}
+    return {"ok": True, "service": APP_NAME, "model": OPENAI_MODEL, "openai_configured": bool(OPENAI_API_KEY), "tools": [x["name"] for x in TOOLS], "sessions": len(SESSIONS)}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
     authenticate(request, authorization)
-    if not OPENAI_API_KEY:
-        raise HTTPException(503, "OPENAI_API_KEY is not configured")
-
     message = req.message.strip()
     fast = local_response(message)
     if fast is not None:
@@ -253,7 +294,7 @@ def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Head
 
     prior = session_history(req)
     try:
-        reply = generate(prior, message)
+        reply = run_agent(prior, message)
     except RuntimeError as exc:
         raise HTTPException(502, str(exc)) from exc
 
@@ -264,72 +305,23 @@ def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Head
 @app.post("/api/chat/stream")
 def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
     authenticate(request, authorization)
-    if not OPENAI_API_KEY:
-        raise HTTPException(503, "OPENAI_API_KEY is not configured")
-
     message = req.message.strip()
     fast = local_response(message)
-    if fast is not None:
-        def fast_events():
-            yield f"data: {json.dumps({'text': fast}, ensure_ascii=False)}\\n\\n"
-            yield "data: [DONE]\\n\\n"
-        return StreamingResponse(fast_events(), media_type="text/event-stream")
-
     prior = session_history(req)
 
     def events():
-        parts = []
-        completed_text = ""
         try:
-            with httpx.stream(
-                "POST",
-                OPENAI_URL,
-                headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json", "Accept": "text/event-stream"},
-                json={**openai_payload(prior, message), "stream": True},
-                timeout=90,
-            ) as response:
-                if response.status_code >= 400:
-                    body = response.read().decode("utf-8", errors="replace")
-                    try:
-                        detail = json.loads(body).get("error", {}).get("message", body[:600])
-                    except Exception:
-                        detail = body[:600]
-                    raise RuntimeError(f"OpenAI request failed ({response.status_code}): {detail}")
-
-                for line in response.iter_lines():
-                    if not line or not line.startswith("data:"):
-                        continue
-                    raw = line[5:].strip()
-                    if raw == "[DONE]":
-                        continue
-                    try:
-                        event = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
-
-                    if event.get("type") == "response.output_text.delta":
-                        delta = event.get("delta", "")
-                        if delta:
-                            parts.append(delta)
-                            yield f"data: {json.dumps({'text': delta}, ensure_ascii=False)}\\n\\n"
-                    elif event.get("type") == "response.completed":
-                        completed_text = extract_text(event.get("response", {}))
-
-            reply = "".join(parts).strip()
-            if not reply:
-                reply = completed_text.strip()
-            if not reply:
-                reply = generate(prior, message)
-                yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\\n\\n"
-
+            reply = fast or run_agent(prior, message)
             save_session(req.session_id, prior + [{"role": "user", "text": message}, {"role": "assistant", "text": reply}])
-            yield "data: [DONE]\\n\\n"
+            yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
         except Exception as exc:
-            yield f"data: {json.dumps({'error': str(exc)[:600]}, ensure_ascii=False)}\\n\\n"
+            yield f"data: {json.dumps({'error': str(exc)[:600]}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-@app.get("/")
-def root():
-    return {"service": APP_NAME, "message": "JARVIS backend is online. Use /health or /api/chat."}
+@app.get("/api/tools")
+def tools(request: Request, authorization: Optional[str] = Header(default=None)):
+    authenticate(request, authorization)
+    return {"tools": [{"name": x["name"], "description": x["description"]} for x in TOOLS]}
