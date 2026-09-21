@@ -14,8 +14,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: pip install pytest
+      - run: pip install -r requirements.txt pytest
       - run: python -m compileall backend
       - run: pytest -q
 
@@ -27,4 +26,5 @@ jobs:
         with:
           node-version: "22"
       - run: node --check web/app.js
+      - run: node --check web/action-registry.js
       - run: node --check web/sw.js
