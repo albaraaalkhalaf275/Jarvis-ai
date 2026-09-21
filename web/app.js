@@ -164,7 +164,7 @@ async function signInProvider(provider) {
     if (!data?.url) setAuthStatus("The " + provider + " sign-in provider did not return an authorization URL.");
 }
 
-backendUrl = (readStorage("jarvis_backend_url") || "https://jarvis-backend-production-e3b6.up.railway.app").trim().replace(/\/$/, "");
+backendUrl = (readStorage("jarvis_backend_url") || window.location.origin).trim().replace(/\/$/, "");
 backendUrlInput.value = backendUrl;
 
 const supabaseUrlInput = document.getElementById("supabaseUrl");
