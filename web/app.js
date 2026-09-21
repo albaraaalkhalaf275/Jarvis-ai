@@ -1,7 +1,6 @@
 const messages = document.getElementById("messages");
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
-const micButton = document.getElementById("micButton");
 const sendButton = document.getElementById("sendButton");
 
 const statusText = document.getElementById("statusText");
@@ -314,8 +313,6 @@ function setStatus(online, text) {
     statusText.textContent = text;
     const model = document.getElementById("modelValue");
     if (model) model.textContent = online ? (window.jarvisModel || "ONLINE") : "--";
-    const voice = document.getElementById("voiceValue");
-    if (voice) voice.textContent = "PAUSED";
 }
 
 function setBusy(value) {
@@ -351,7 +348,6 @@ async function checkBackend() {
         backendFailures = 0;
         setStatus(true, "ONLINE");
         setSubtitle("JARVIS systems operational.");
-        document.getElementById("voiceStatus").textContent = data.tts_configured ? "ONLINE" : "FALLBACK";
         document.getElementById("systemFoot").textContent = "ALL SYSTEMS OPERATIONAL";
         return true;
     } catch (error) {
@@ -619,7 +615,6 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => navigato
     const backendStatus = document.getElementById('backendStatus');
     const connectionValue = document.getElementById('connectionValue');
     const aiStatus = document.getElementById('aiStatus');
-    const voiceStatus = document.getElementById('voiceStatus');
     const statusLabel = document.getElementById('statusLabel');
     const sideStatus = document.getElementById("sideStatus");
     const aiStatusSide = document.getElementById("aiStatusSide");
@@ -636,7 +631,6 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => navigato
         if (backendStatus) backendStatus.textContent = displayState;
         if (connectionValue) connectionValue.textContent = displayState;
         if (aiStatus) aiStatus.textContent = displayState;
-        if (voiceStatus) voiceStatus.textContent = online ? 'READY' : connecting ? 'CONNECTING' : 'OFFLINE';
         if (statusLabel) statusLabel.textContent = online ? 'OPERATIONAL' : connecting ? 'CONNECTING' : state;
         if (sideStatus) sideStatus.textContent = displayState;
         if (aiStatusSide) aiStatusSide.textContent = displayState;
