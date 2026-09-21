@@ -1,35 +1,51 @@
 # JARVIS
 
-A clean, Render-ready personal AI assistant.
+Custom-built personal AI assistant with a mobile-first HUD interface and FastAPI backend.
 
-## Architecture
+## UI contract
 
-- Frontend: static mobile-first web/PWA in `web/`
-- Backend: FastAPI in `backend/`
-- AI: OpenAI Responses API
-- Deployment: Render
-- Secrets: environment variables only
+No decorative action buttons are left unhandled.
 
-## Local development
+Chat controls:
+- navigation buttons switch views
+- status runs a live health check
+- new chat resets the local conversation
+- attach selects files and sends them through the file-analysis path when a message is submitted
+- send submits the current request
 
-Backend:
+Tool Center:
+- Web Search uses the OpenAI Responses API web-search tool
+- Calculator uses the backend safe calculator
+- Calendar opens the local task scheduler
+- Summarize and Translate send focused requests to JARVIS
+- Analyze opens the file analysis workflow
 
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r ../requirements.txt
-export OPENAI_API_KEY="your-key"
-uvicorn app.main:app --reload
-```
+Memory, Tasks, Files, and Settings each have working local controls.
 
-Frontend can be served as static files from `web/`.
+## Backend
 
-## Required environment variables
+FastAPI uses the OpenAI Responses API. The assistant supports function calling, optional live web search, and uploaded file inputs.
 
+The OpenAI Responses API supports built-in tools including web search and file inputs. GPT-5.6 supports function calling, web search, file search, and computer use.
+
+## Environment
+
+Required:
 - `OPENAI_API_KEY`
-- `OPENAI_MODEL` (default: `gpt-5.6`)
-- `ALLOW_GUEST` (default: `true`)
-- `FRONTEND_ORIGINS` (comma-separated allowed frontend origins)
 
-Never commit API keys or service-role credentials.
+Optional:
+- `OPENAI_MODEL` defaults to `gpt-5.6`
+- `ALLOW_GUEST` defaults to `true`
+- `FRONTEND_ORIGINS`
+- `ALLOWED_HOSTS`
+
+Never commit secrets.
+
+## Deployment
+
+Render builds the backend from the `backend` directory:
+
+```
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
