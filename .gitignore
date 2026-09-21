@@ -1,21 +1,14 @@
-# Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-env/
-
-# Environment secrets
 .env
 .env.*
 !.env.example
-
-# OS / editor
+.pytest_cache/
+.mypy_cache/
 .DS_Store
-.vscode/
-.idea/
-
-# Local databases
-*.db
-*.sqlite
-*.sqlite3
+node_modules/
+dist/
+build/
+*.log
