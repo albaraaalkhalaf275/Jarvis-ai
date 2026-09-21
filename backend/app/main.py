@@ -48,7 +48,7 @@ FRONTEND_ORIGINS = [
     origin.strip().rstrip("/")
     for origin in os.getenv(
         "FRONTEND_ORIGINS",
-        "https://jarvis-ai-1-12xu.onrender.com,http://localhost:3000,http://127.0.0.1:3000",
+        "http://localhost:3000,http://127.0.0.1:3000",
     ).split(",")
     if origin.strip()
 ]
@@ -56,7 +56,7 @@ ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv(
         "ALLOWED_HOSTS",
-        "jarvis-ai-uhe3.onrender.com,localhost,127.0.0.1",
+        "jarvis-ai-uhe3.onrender.com,*.vercel.app,localhost,127.0.0.1",
     ).split(",")
     if host.strip()
 ]
