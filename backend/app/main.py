@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -21,23 +21,25 @@ APP_NAME = "JARVIS"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6").strip()
 OPENAI_URL = "https://api.openai.com/v1/responses"
+OPENAI_FILES_URL = "https://api.openai.com/v1/files"
 ALLOW_GUEST = os.getenv("ALLOW_GUEST", "true").lower() in {"1", "true", "yes"}
-FRONTEND_ORIGINS = [x.strip() for x in os.getenv("FRONTEND_ORIGINS", "https://jarvis-ai-1-12xu.onrender.com,http://localhost:5173,http://127.0.0.1:5173").split(",") if x.strip()]
+FRONTEND_ORIGINS = [x.strip() for x in os.getenv("FRONTEND_ORIGINS", "*").split(",") if x.strip()]
 ALLOWED_HOSTS = [x.strip() for x in os.getenv("ALLOWED_HOSTS", "*.onrender.com,localhost,127.0.0.1").split(",") if x.strip()]
 
 SYSTEM_PROMPT = """You are JARVIS, a capable personal AI assistant.
 Be accurate, direct, useful, and honest about uncertainty.
-Answer the user's request first. Use supplied conversation context.
-Never invent facts, actions, sources, tool results, or capabilities.
-You have tools. Use them when they materially improve accuracy.
-For important external, destructive, financial, privacy-sensitive, account-changing, or communication actions, require confirmation. Never pretend a tool action happened.
+Answer the user's actual request first. Use supplied conversation context.
+Use tools when they materially improve the answer.
+Never invent facts, actions, sources, or tool results.
+If a capability is unavailable, state that clearly instead of pretending.
+Important external, destructive, financial, privacy-sensitive, account-changing, or communication actions require confirmation.
 """
 
 app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=FRONTEND_ORIGINS,
+    allow_origins=["*"] if FRONTEND_ORIGINS == ["*"] else FRONTEND_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -45,29 +47,30 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 GUEST_HITS: dict[str, list[float]] = defaultdict(list)
-GUEST_RATE_LIMIT = 60
-GUEST_RATE_WINDOW = 60
 SESSIONS: dict[str, list[dict]] = {}
 MAX_SESSION_MESSAGES = 40
+GUEST_RATE_LIMIT = 60
+GUEST_RATE_WINDOW = 60
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
     history: list[dict] = Field(default_factory=list, max_length=40)
     session_id: Optional[str] = Field(default=None, max_length=128)
+    mode: str = Field(default="chat", max_length=32)
 
 
-class ChatResponse(BaseModel):
-    reply: str
-    model: str
-    session_id: Optional[str] = None
+class ToolRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    arguments: dict = Field(default_factory=dict)
 
 
 def authenticate(request: Request, authorization: Optional[str]) -> None:
     if authorization:
         if not authorization.startswith("Bearer ") or not authorization[7:].strip():
             raise HTTPException(401, "Invalid authorization header")
-        raise HTTPException(401, "Authentication is not configured in this foundation build")
+        raise HTTPException(401, "Authentication is not configured in this deployment")
     if not ALLOW_GUEST:
         raise HTTPException(401, "Authentication required")
 
@@ -80,13 +83,13 @@ def authenticate(request: Request, authorization: Optional[str]) -> None:
     GUEST_HITS[ip] = recent
 
 
-def session_history(req: ChatRequest) -> list[dict]:
+def get_history(req: ChatRequest) -> list[dict]:
     if req.session_id and req.session_id in SESSIONS:
         return SESSIONS[req.session_id][-MAX_SESSION_MESSAGES:]
     return req.history[-20:]
 
 
-def save_session(session_id: Optional[str], history: list[dict]) -> None:
+def save_history(session_id: Optional[str], history: list[dict]) -> None:
     if session_id:
         SESSIONS[session_id] = history[-MAX_SESSION_MESSAGES:]
 
@@ -149,7 +152,7 @@ def build_input(history: list[dict], message: str) -> list[dict]:
     return items
 
 
-TOOLS = [
+FUNCTION_TOOLS = [
     {
         "type": "function",
         "name": "calculator",
@@ -165,18 +168,18 @@ TOOLS = [
     {
         "type": "function",
         "name": "current_time",
-        "description": "Get the current local time of the server.",
+        "description": "Get the current local server time.",
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
         "strict": True,
     },
 ]
 
 
-def run_tool(name: str, arguments: str) -> str:
+def run_function(name: str, arguments: str) -> str:
     try:
         args = json.loads(arguments or "{}")
     except json.JSONDecodeError:
-        return "Tool arguments were invalid."
+        return "Invalid tool arguments."
 
     if name == "calculator":
         result = safe_calculate(str(args.get("expression", "")))
@@ -185,7 +188,7 @@ def run_tool(name: str, arguments: str) -> str:
     if name == "current_time":
         return datetime.now().astimezone().strftime("%A, %B %d, %Y at %I:%M:%S %p %Z")
 
-    return f"Unknown tool: {name}"
+    return "Unknown function."
 
 
 def openai_request(payload: dict) -> dict:
@@ -197,7 +200,7 @@ def openai_request(payload: dict) -> dict:
             OPENAI_URL,
             headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
             json=payload,
-            timeout=90,
+            timeout=120,
         )
     except httpx.HTTPError as exc:
         raise RuntimeError(f"OpenAI connection failed: {exc}") from exc
@@ -225,37 +228,46 @@ def extract_text(data: dict) -> str:
     return "".join(parts).strip()
 
 
-def run_agent(history: list[dict], message: str) -> str:
+def agent(history: list[dict], message: str, mode: str = "chat") -> str:
     input_items = build_input(history, message)
+    tools = list(FUNCTION_TOOLS)
     payload = {
         "model": OPENAI_MODEL,
         "instructions": SYSTEM_PROMPT,
         "input": input_items,
-        "tools": TOOLS,
-        "max_output_tokens": 1600,
+        "tools": tools,
+        "max_output_tokens": 2000,
         "store": False,
     }
 
-    for _ in range(6):
+    if mode == "search":
+        payload["tools"] = [{"type": "web_search", "search_context_size": "low"}, *FUNCTION_TOOLS]
+        payload["tool_choice"] = "auto"
+        payload["include"] = ["web_search_call.action.sources"]
+
+    for _ in range(8):
         data = openai_request(payload)
-        tool_calls = [item for item in data.get("output", []) if item.get("type") == "function_call"]
-        if not tool_calls:
+        calls = [item for item in data.get("output", []) or [] if item.get("type") == "function_call"]
+
+        if not calls:
             text = extract_text(data)
             if text:
                 return text
             raise RuntimeError("OpenAI returned an empty response.")
 
         input_items.extend(data.get("output", []))
-        for call in tool_calls:
-            result = run_tool(call.get("name", ""), call.get("arguments", "{}"))
-            input_items.append({
-                "type": "function_call_output",
-                "call_id": call.get("call_id"),
-                "output": result,
-            })
+        for call in calls:
+            result = run_function(call.get("name", ""), call.get("arguments", "{}"))
+            input_items.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": call.get("call_id"),
+                    "output": result,
+                }
+            )
         payload["input"] = input_items
 
-    raise RuntimeError("JARVIS reached the maximum tool-call steps.")
+    raise RuntimeError("JARVIS reached its tool-call limit.")
 
 
 @app.middleware("http")
@@ -275,53 +287,103 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "service": APP_NAME, "model": OPENAI_MODEL, "openai_configured": bool(OPENAI_API_KEY), "tools": len(TOOLS), "sessions": len(SESSIONS)}
-
-
-@app.get("/api/status")
-def status(request: Request, authorization: Optional[str] = Header(default=None)):
-    authenticate(request, authorization)
-    return {"ok": True, "service": APP_NAME, "model": OPENAI_MODEL, "openai_configured": bool(OPENAI_API_KEY), "tools": [x["name"] for x in TOOLS], "sessions": len(SESSIONS)}
-
-
-@app.post("/api/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
-    authenticate(request, authorization)
-    message = req.message.strip()
-    fast = local_response(message)
-    if fast is not None:
-        return ChatResponse(reply=fast, model=OPENAI_MODEL, session_id=req.session_id)
-
-    prior = session_history(req)
-    try:
-        reply = run_agent(prior, message)
-    except RuntimeError as exc:
-        raise HTTPException(502, str(exc)) from exc
-
-    save_session(req.session_id, prior + [{"role": "user", "text": message}, {"role": "assistant", "text": reply}])
-    return ChatResponse(reply=reply, model=OPENAI_MODEL, session_id=req.session_id)
+    return {
+        "ok": True,
+        "service": APP_NAME,
+        "model": OPENAI_MODEL,
+        "openai_configured": bool(OPENAI_API_KEY),
+        "tools": len(FUNCTION_TOOLS) + 1,
+        "sessions": len(SESSIONS),
+    }
 
 
 @app.post("/api/chat/stream")
 def chat_stream(req: ChatRequest, request: Request, authorization: Optional[str] = Header(default=None)):
     authenticate(request, authorization)
     message = req.message.strip()
-    fast = local_response(message)
-    prior = session_history(req)
+    prior = get_history(req)
 
     def events():
         try:
-            reply = fast or run_agent(prior, message)
-            save_session(req.session_id, prior + [{"role": "user", "text": message}, {"role": "assistant", "text": reply}])
+            fast = local_response(message)
+            reply = fast if fast is not None else agent(prior, message, req.mode)
+            save_history(req.session_id, prior + [{"role": "user", "text": message}, {"role": "assistant", "text": reply}])
             yield f"data: {json.dumps({'text': reply}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as exc:
-            yield f"data: {json.dumps({'error': str(exc)[:600]}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'error': str(exc)[:800]}, ensure_ascii=False)}\n\n"
 
-    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
-@app.get("/api/tools")
-def tools(request: Request, authorization: Optional[str] = Header(default=None)):
+@app.post("/api/tools/run")
+def tools_run(req: ToolRequest, request: Request, authorization: Optional[str] = Header(default=None)):
     authenticate(request, authorization)
-    return {"tools": [{"name": x["name"], "description": x["description"]} for x in TOOLS]}
+    if req.name == "calculator":
+        result = safe_calculate(str(req.arguments.get("expression", "")))
+        if result is None:
+            raise HTTPException(400, "Invalid mathematical expression")
+        return {"ok": True, "result": result}
+    if req.name == "current_time":
+        return {"ok": True, "result": datetime.now().astimezone().strftime("%A, %B %d, %Y at %I:%M:%S %p %Z")}
+    raise HTTPException(404, "Tool not found")
+
+
+@app.post("/api/files/analyze")
+async def analyze_file(
+    request: Request,
+    file: UploadFile = File(...),
+    prompt: str = Form(default="Analyze this file and provide the key facts, structure, and useful action items."),
+    authorization: Optional[str] = Header(default=None),
+):
+    authenticate(request, authorization)
+    if not OPENAI_API_KEY:
+        raise HTTPException(503, "OPENAI_API_KEY is not configured")
+
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File exceeds the 25 MB JARVIS upload limit.")
+
+    filename = file.filename or "uploaded-file"
+    media_type = file.content_type or "application/octet-stream"
+
+    try:
+        upload = httpx.post(
+            OPENAI_FILES_URL,
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+            files={"file": (filename, content, media_type)},
+            data={"purpose": "user_data"},
+            timeout=120,
+        )
+        upload.raise_for_status()
+        file_id = upload.json()["id"]
+
+        response = openai_request(
+            {
+                "model": OPENAI_MODEL,
+                "instructions": SYSTEM_PROMPT,
+                "input": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_file", "file_id": file_id},
+                            {"type": "input_text", "text": prompt[:4000]},
+                        ],
+                    }
+                ],
+                "max_output_tokens": 2400,
+                "store": False,
+            }
+        )
+        reply = extract_text(response)
+        if not reply:
+            raise RuntimeError("OpenAI returned an empty file-analysis response.")
+        return {"ok": True, "file_id": file_id, "filename": filename, "reply": reply}
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, f"File analysis request failed: {exc}") from exc
+    except (KeyError, RuntimeError) as exc:
+        raise HTTPException(502, str(exc)) from exc
